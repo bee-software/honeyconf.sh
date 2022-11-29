@@ -7,8 +7,6 @@ if [ "$(config "monitoring.type" | value)" != "node_exporter" ]; then
   exit 0
 fi
 
-# Use a newer node exporter to support client certificates.
-# Node exporter 1.2.2 binary is a drop-in replacement to the binary provided by the prometheus-node-exporter package on Ubuntu 20.04.
 cat <<NODE_EXPORTER
 # BEGIN: monitoring
 ensure_installed prometheus-node-exporter
@@ -41,12 +39,22 @@ EOF
 cat <<EOF > /etc/prometheus-node-exporter/ca.crt
 $(config "monitoring.tls_ca" | value)
 EOF
+NODE_EXPORTER
 
+
+if [ "$(config "monitoring.source" | value)" == "upstream-1.2.2" ]; then
+  # Use a newer node exporter to support client certificates.
+  # Node exporter 1.2.2 binary is a drop-in replacement to the binary provided by the prometheus-node-exporter package on Ubuntu 20.04.
+  cat <<STATIC_122_FIX
+# BEGIN: UPSTREAM-1.2.2
 if [ "\$(sha256sum /usr/bin/prometheus-node-exporter | cut -f1 -d ' ')" != "ae6030f0bad626a1acc43e0698d227212bc5d71196fd0af79e24e662c0f1c561" ]; then
   curl -L https://github.com/prometheus/node_exporter/releases/download/v1.2.2/node_exporter-1.2.2.linux-amd64.tar.gz | tar -xvz --strip 1 -C /usr/bin node_exporter-1.2.2.linux-amd64/node_exporter
   mv /usr/bin/node_exporter /usr/bin/prometheus-node-exporter
 
   systemctl restart prometheus-node-exporter
 fi
-# END: monitoring
-NODE_EXPORTER
+# END: UPSTREAM-1.2.2
+STATIC_122_FIX
+fi
+
+echo "# END: monitoring"

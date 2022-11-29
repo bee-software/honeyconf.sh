@@ -54,6 +54,13 @@
                 "node_exporter"
               ]
             },
+            "source": {
+              "type": "string",
+              "enum": [
+                "package",
+                "upstream-1.2.2"
+              ]
+            },
             "tls_ca": {
               "type": "string"
             },

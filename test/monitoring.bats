@@ -45,7 +45,24 @@ EOF
 cat <<EOF > /etc/prometheus-node-exporter/ca.crt
 MY CA CERT
 EOF
+EXPECTED
+}
 
+@test "forces static 1.2.2 version when specified" {
+    create_machines_yaml <<EOF
+machines:
+  test.example.com:
+    monitoring:
+      type: node_exporter
+      source: upstream-1.2.2
+      tls_ca: "MY CA CERT"
+      tls_cert: "MY CERT CHAIN"
+      tls_key: "MY CERT KEY"
+EOF
+  compile 'test.example.com'
+  assert_successful
+
+  assert_output_within_output_matching '/^# BEGIN: monitoring$/,/^# END: monitoring$/' '/^# BEGIN: UPSTREAM-1.2.2$/,/^# END: UPSTREAM-1.2.2$/' <<"EXPECTED"
 if [ "$(sha256sum /usr/bin/prometheus-node-exporter | cut -f1 -d ' ')" != "ae6030f0bad626a1acc43e0698d227212bc5d71196fd0af79e24e662c0f1c561" ]; then
   curl -L https://github.com/prometheus/node_exporter/releases/download/v1.2.2/node_exporter-1.2.2.linux-amd64.tar.gz | tar -xvz --strip 1 -C /usr/bin node_exporter-1.2.2.linux-amd64/node_exporter
   mv /usr/bin/node_exporter /usr/bin/prometheus-node-exporter
