@@ -25,7 +25,7 @@ MACHINES_YAML
 
   assert_output_matching '/^# BEGIN: application_server_role$/,/^# END: application_server_role$/' <<EXPECTED
 if ! test -e /usr/bin/dockerd; then
-  ensure_installed docker.io docker-compose
+  ensure_installed docker.io docker-compose-v2
 fi
 EXPECTED
 }
@@ -48,7 +48,7 @@ MACHINES_YAML
 
   assert_output_matching '/^# BEGIN: application_server_role$/,/^# END: application_server_role$/' <<"EXPECTED"
 if ! test -e /usr/bin/dockerd; then
-  ensure_installed docker.io docker-compose
+  ensure_installed docker.io docker-compose-v2
 fi
 mkdir -p /etc/systemd/system/docker.service.d/
 if ! test -f /etc/systemd/system/docker.service.d/$(systemd-escape -p --suffix=mount "/mnt/external_storage/test_data").conf; then

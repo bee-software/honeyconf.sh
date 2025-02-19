@@ -10,7 +10,7 @@ fi
 cat <<EOF
 # BEGIN: application_server_role
 if ! test -e /usr/bin/dockerd; then
-  ensure_installed docker.io docker-compose
+  ensure_installed docker.io docker-compose-v2
 fi
 EOF
 
