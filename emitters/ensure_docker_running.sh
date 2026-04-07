@@ -3,7 +3,7 @@ pushd "$(dirname $0)" > /dev/null
 . ../config.sh
 popd > /dev/null
 
-if [ "$(config "options.manage_docker" | default "true")" != "true" ]; then
+if ! config "roles" | items | grep -q '^application_server$'; then
   exit 0
 fi
 

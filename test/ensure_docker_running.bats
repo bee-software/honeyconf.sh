@@ -4,7 +4,9 @@ load common.sh
 @test "ensures docker is running for application servers" {
   create_machines_yaml <<MACHINES_YAML
 machines:
-  test.example.com: {}
+  test.example.com:
+    roles:
+      - application_server
 MACHINES_YAML
   compile 'test.example.com'
   assert_successful
@@ -20,8 +22,7 @@ EXPECTED
   create_machines_yaml <<MACHINES_YAML
 machines:
   test.example.com:
-    options:
-      manage_docker: false
+    roles: []
 MACHINES_YAML
   compile 'test.example.com'
   assert_successful
