@@ -1,6 +1,18 @@
 #!/usr/bin/env bats
 load common.sh
 
+@test "avoids any statement when network block is not present" {
+  create_machines_yaml <<MACHINES_YAML
+machines:
+  test.example.com: {}
+MACHINES_YAML
+  compile 'test.example.com'
+  assert_successful
+
+  assert_output_does_not_contain 'networking_disable_cloud'
+  assert_output_does_not_contain 'NETWORKING_RELOAD'
+}
+
 @test "skips unmanaged interfaces" {
   create_machines_yaml <<MACHINES_YAML
 machines:

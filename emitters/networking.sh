@@ -207,7 +207,7 @@ EOF
   echo "# END: NETWORKING_RELOAD"
 }
 
-if [ "$(config 'network')" == "" ]; then
+if [ "$(config 'network' | value)" == "" ]; then
   exit 0
 fi
 

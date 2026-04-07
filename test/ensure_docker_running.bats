@@ -15,3 +15,16 @@ if [ -f /lib/systemd/system/docker.service ]; then
 fi
 EXPECTED
 }
+
+@test "does not emit any statement when unconfigured" {
+  create_machines_yaml <<MACHINES_YAML
+machines:
+  test.example.com:
+    options:
+      manage_docker: false
+MACHINES_YAML
+  compile 'test.example.com'
+  assert_successful
+
+  assert_output_does_not_contain 'ensure_docker_running'
+}

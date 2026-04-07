@@ -1,4 +1,12 @@
-#!/bin/bash
+#!/bin/bash -eu
+pushd "$(dirname $0)" > /dev/null
+. ../config.sh
+popd > /dev/null
+
+if [ "$(config "options.manage_updatedb" | default "true")" != "true" ]; then
+  exit 0
+fi
+
 cat <<"EOF"
 # BEGIN: updatedb
 if [ -f /etc/updatedb.conf ]; then

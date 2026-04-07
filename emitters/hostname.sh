@@ -1,4 +1,12 @@
 #!/bin/bash -eu
+pushd "$(dirname $0)" > /dev/null
+. ../config.sh
+popd > /dev/null
+
+if [ "$(config "options.manage_hostname" | default "true")" != "true" ]; then
+  exit 0
+fi
+
 cat <<EOF
 # BEGIN: hostname
 echo "${MACHINE_NAME}" > /etc/hostname
