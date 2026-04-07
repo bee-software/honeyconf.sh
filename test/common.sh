@@ -1,7 +1,7 @@
 #!/bin/bash
+TEST_ROOT="$(dirname ${BASH_SOURCE[0]})"
 # shellcheck source=./../emitters/_messages.sh
-. $BATS_TEST_DIRNAME/../emitters/_messages.sh
-
+. "${TEST_ROOT}/../emitters/_messages.sh"
 MACHINES_YAML="$(mktemp -d ${TMPDIR:-"/tmp"}/infratools.XXXXXXXX)/machines.yaml"
 
 setup() {
@@ -21,11 +21,11 @@ create_machines_yaml() {
 }
 
 compile() {
-  run $BATS_TEST_DIRNAME/../compile.sh $MACHINES_YAML "$@"
+  run "$TEST_ROOT/../compile.sh" $MACHINES_YAML "$@"
 }
 
 list_machines() {
-  run $BATS_TEST_DIRNAME/../list_machines.sh $MACHINES_YAML "$@"
+  run "$TEST_ROOT/../list_machines.sh" $MACHINES_YAML "$@"
 }
 
 assert_output() {
