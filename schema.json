@@ -132,6 +132,17 @@
                   },
                   "authorized_keys": {
                     "type": "string"
+                  },
+                  "groups": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z_][a-z0-9_-]*$"
+                    },
+                    "uniqueItems": true
+                  },
+                  "sudo": {
+                    "type": "boolean"
                   }
                 },
                 "required": [

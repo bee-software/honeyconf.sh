@@ -21,6 +21,27 @@ if ! grep -q '^${username}:' /etc/passwd; then
 fi
 CREATE_ACCOUNT
 
+for group in $(config "access_control.service_accounts | .${index}.groups" | items); do
+  echo "usermod -aG ${group} ${username}"
+done
+
+sudoers_file="/etc/sudoers.d/service_account_${username}"
+if [ "$(config "access_control.service_accounts | .${index}.sudo" | value)" == "true" ]; then
+  cat <<SUDO
+cat <<EOF > ${sudoers_file}.tmp
+#
+# This file is managed by an automated provisioning task. Any manual change will eventually be overwritten.
+#
+${username} ALL=(ALL) NOPASSWD:ALL
+EOF
+visudo -cf ${sudoers_file}.tmp
+chmod 0440 ${sudoers_file}.tmp
+mv ${sudoers_file}.tmp ${sudoers_file}
+SUDO
+else
+  echo "rm -f ${sudoers_file}"
+fi
+
 if config "access_control.service_accounts | .${index}" | keys | grep -q '^authorized_keys$'; then
   cat <<SSH_KEY
 if ! test -d ${home_directory}/.ssh; then
