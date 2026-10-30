@@ -1,30 +1,28 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "purpleconf_machines_spec.json",
-  "title": "Purpleconf machines index specification",
+  "$id": "honeyconf_machines_spec.json",
+  "title": "honeyconf.sh machines index specification",
   "description": "A declaration of machines configuration",
   "type": "object",
   "properties": {
     "machines": {
-      "id": "#/machines",
       "type": "object",
       "patternProperties": {
         "^[a-zA-Z0-9._-]+$": {
-          "$ref": "#/definitions/machine"
+          "$ref": "#/$defs/machine"
         }
       },
       "additionalProperties": false
     }
   },
-  "definitions": {
+  "$defs": {
     "machine": {
-      "id": "#/definitions/machine",
       "type": "object",
       "properties": {
         "managed": {
           "type": "boolean",
-          "default": false,
-          "description": "Whether the machine should be managed or not."
+          "default": true,
+          "description": "Whether the machine is targeted by deploy.sh, execute.sh and profile_all.sh. Set to false to skip it."
         },
         "roles": {
           "type": "array",
@@ -34,16 +32,52 @@
               "application_server",
               "backup_server"
             ]
-          }
+          },
+          "uniqueItems": true
+        },
+        "options": {
+          "type": "object",
+          "properties": {
+            "manage_hostname": {
+              "type": "boolean",
+              "default": true,
+              "description": "Set /etc/hostname, the running hostname and the 127.0.1.1 entry of /etc/hosts to the machine name."
+            },
+            "manage_fail2ban": {
+              "type": "boolean",
+              "default": true,
+              "description": "Install fail2ban."
+            },
+            "manage_updatedb": {
+              "type": "boolean",
+              "default": true,
+              "description": "Exclude /mnt and aufs from updatedb (mlocate) indexing."
+            },
+            "disable_ssh_password_authentication": {
+              "type": "boolean",
+              "default": true,
+              "description": "Force 'PasswordAuthentication no' in /etc/ssh/sshd_config."
+            }
+          },
+          "additionalProperties": false
         },
         "network": {
           "type": "object",
-          "additionalProperties": false,
-          "patternProperties": {
-            "^[a-zA-Z0-9._-]+$": {
-              "$ref": "#/definitions/network"
+          "properties": {
+            "dmz": {
+              "$ref": "#/$defs/network"
+            },
+            "internal": {
+              "$ref": "#/$defs/network"
+            },
+            "public": {
+              "$ref": "#/$defs/network"
+            },
+            "dialin": {
+              "$ref": "#/$defs/network"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "monitoring": {
           "type": "object",
@@ -56,6 +90,7 @@
             },
             "source": {
               "type": "string",
+              "default": "package",
               "enum": [
                 "package",
                 "upstream-1.2.2"
@@ -71,17 +106,18 @@
               "type": "string"
             }
           },
+          "required": [
+            "type"
+          ],
           "additionalProperties": false
         },
         "swap": {
           "type": "object",
           "properties": {
             "size_mb": {
-              "type": "integer"
-            },
-            "path": {
-              "type": "string",
-              "default": "/swapfile"
+              "type": "integer",
+              "minimum": 1,
+              "description": "Size of /swapfile in megabytes. Only applied when /swapfile does not exist yet."
             }
           },
           "required": [
@@ -93,15 +129,16 @@
           "type": "object",
           "properties": {
             "username": {
-              "type": "string"
+              "type": "string",
+              "description": "SSH login used by deploy.sh, execute.sh and profile_all.sh. Must be allowed to run sudo."
             },
             "password": {
-              "type": "string"
+              "type": "string",
+              "description": "Not used by honeyconf.sh."
             }
           },
           "required": [
-            "username",
-            "password"
+            "username"
           ]
         },
         "access_control": {
@@ -111,7 +148,8 @@
               "type": "string"
             },
             "authorized_keys_user": {
-              "type": "string"
+              "type": "string",
+              "description": "Keys are written to /home/<user>/.ssh/authorized_keys unless authorized_keys_file is set."
             },
             "authorized_keys_additional": {
               "type": "string"
@@ -142,7 +180,8 @@
                     "uniqueItems": true
                   },
                   "sudo": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "default": false
                   }
                 },
                 "required": [
@@ -153,15 +192,24 @@
               }
             }
           },
-          "required": [
-            "authorized_keys"
+          "anyOf": [
+            {
+              "required": [
+                "authorized_keys_file"
+              ]
+            },
+            {
+              "required": [
+                "authorized_keys_user"
+              ]
+            }
           ],
           "additionalProperties": false
         },
         "mounts": {
           "patternProperties": {
             "^[a-zA-Z0-9._-]+$": {
-              "$ref": "#/definitions/mount"
+              "$ref": "#/$defs/mount"
             }
           },
           "type": "object",
@@ -187,9 +235,12 @@
                   "contents": {
                     "type": "string"
                   }
-                }
-              },
-              "additionalProperties": false
+                },
+                "required": [
+                  "path"
+                ],
+                "additionalProperties": false
+              }
             }
           },
           "additionalProperties": false
@@ -198,42 +249,60 @@
       "additionalProperties": false
     },
     "network": {
-      "id": "#/definitions/network",
       "type": "object",
       "properties": {
-        "ip": {
-          "type": "string"
-        },
-        "gateway": {
-          "type": "string"
+        "managed": {
+          "type": "boolean",
+          "default": false,
+          "description": "Only managed networks are written to disk."
         },
         "interface": {
           "type": "string"
         },
         "mode": {
           "type": "string",
+          "default": "static",
           "enum": [
-            "dhcp"
+            "static",
+            "dhcp",
+            "manual"
           ]
+        },
+        "state": {
+          "type": "string",
+          "default": "up",
+          "enum": [
+            "up",
+            "down"
+          ],
+          "description": "'down' forces mode to 'manual' and stops ifup@<interface>.service."
+        },
+        "ip": {
+          "type": "string",
+          "description": "Address in CIDR notation, used when mode is static."
+        },
+        "gateway": {
+          "type": "string"
         },
         "routes": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "net":{
+              "net": {
                 "type": "string",
                 "description": "CIDR"
               },
-              "gateway":{
+              "gateway": {
                 "type": "string"
               }
             },
+            "required": [
+              "net",
+              "gateway"
+            ],
             "additionalProperties": false
           }
-        },
-        "managed": {
-          "type": "boolean"
         },
         "nameservers": {
           "type": "array",
@@ -245,19 +314,17 @@
       "additionalProperties": false
     },
     "mount": {
-      "id": "#/definitions/mount",
       "type": "object",
       "properties": {
         "filesystem": {
           "type": "string",
           "default": "ext4",
-          "enum": [
-            "ext4",
-            "zfs"
-          ]
+          "description": "Any filesystem other than zfs is mounted through /etc/fstab at /mnt/external_storage/<name>."
         },
         "encrypted": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false,
+          "description": "Open every device as a LUKS container before use."
         },
         "encryption_key": {
           "type": "string"
@@ -267,18 +334,21 @@
         },
         "devices": {
           "type": "array",
+          "description": "Takes precedence over device. Only the first device is mounted for non-zfs filesystems.",
           "items": {
             "type": "string"
           }
         },
         "folders": {
           "type": "array",
+          "description": "Folders created inside /mnt/external_storage/<name>. Ignored for zfs.",
           "items": {
             "type": "string"
           }
         },
         "datasets": {
           "type": "array",
+          "description": "ZFS datasets. Ignored for other filesystems.",
           "items": {
             "type": "object",
             "properties": {
@@ -300,16 +370,13 @@
             },
             "additionalProperties": false,
             "required": [
-              "name", "mountpoint"
+              "name",
+              "mountpoint"
             ]
           }
         }
       },
-      "mountpoint": {
-        "type": "string",
-        "default": "/mnt/external_storage/$NAME"
-      }
-    },
-    "additionalProperties": false
+      "additionalProperties": false
+    }
   }
 }

@@ -4,5 +4,5 @@ test_native:
 	bats --formatter tap test/
 
 test:
-	docker build -t purpleconf-testing .
-	docker run -v "${PWD}:/code" purpleconf-testing test
+	docker build -t honeyconf-testing .
+	docker run -v "${PWD}:/code" honeyconf-testing test

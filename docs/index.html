@@ -1,0 +1,1694 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>honeyconf.sh documentation</title>
+<meta name="description" content="honeyconf.sh — system configuration management, as simple as can be. Describe machines in YAML, compile them to plain bash, run it over SSH.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M16 2l12 7v14l-12 7-12-7V9z' fill='%23e8a317'/><path d='M16 9l6 3.5v7L16 23l-6-3.5v-7z' fill='%23fff3d6'/></svg>">
+<style>
+:root {
+  --bg: #fffdf8;
+  --bg-soft: #fbf6ea;
+  --bg-code: #f6f1e4;
+  --border: #ece3cc;
+  --text: #2a2418;
+  --muted: #6d6250;
+  --accent: #b7790a;
+  --accent-strong: #8f5d00;
+  --accent-bg: #fdf0cf;
+  --link: #9a5f00;
+  --ok: #2f7d32;
+  --warn-bg: #fff4dc;
+  --warn-border: #e8b04a;
+  --danger-bg: #fdecea;
+  --danger-border: #d9665b;
+  --info-bg: #eef4fb;
+  --info-border: #7aa3cf;
+  --tk-comment: #8a8070;
+  --tk-key: #8a4b00;
+  --tk-string: #2d7a3c;
+  --tk-keyword: #7b3fa0;
+  --tk-var: #1f62a8;
+  --tk-num: #b5452f;
+  --shadow: 0 1px 2px rgba(60, 45, 10, .06), 0 4px 16px rgba(60, 45, 10, .05);
+  --sidebar-w: 280px;
+  --mono: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #17140f; --bg-soft: #1f1b14; --bg-code: #221e16; --border: #3a3326;
+    --text: #ece5d6; --muted: #a89c86; --accent: #f0b232; --accent-strong: #ffc95c;
+    --accent-bg: #3a2c10; --link: #f3bd52; --ok: #7cc47f;
+    --warn-bg: #33280f; --warn-border: #a57b22; --danger-bg: #3a1b18; --danger-border: #b4574e;
+    --info-bg: #17222f; --info-border: #4f7398;
+    --tk-comment: #8c8371; --tk-key: #f0b45a; --tk-string: #8fcf8a; --tk-keyword: #d19cf0;
+    --tk-var: #7fb4ee; --tk-num: #f08a72;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #17140f; --bg-soft: #1f1b14; --bg-code: #221e16; --border: #3a3326;
+  --text: #ece5d6; --muted: #a89c86; --accent: #f0b232; --accent-strong: #ffc95c;
+  --accent-bg: #3a2c10; --link: #f3bd52; --ok: #7cc47f;
+  --warn-bg: #33280f; --warn-border: #a57b22; --danger-bg: #3a1b18; --danger-border: #b4574e;
+  --info-bg: #17222f; --info-border: #4f7398;
+  --tk-comment: #8c8371; --tk-key: #f0b45a; --tk-string: #8fcf8a; --tk-keyword: #d19cf0;
+  --tk-var: #7fb4ee; --tk-num: #f08a72;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.25);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 16px/1.65 var(--sans); -webkit-font-smoothing: antialiased;
+}
+a { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { color: var(--accent-strong); }
+code, pre, kbd { font-family: var(--mono); font-size: .875em; }
+:not(pre) > code {
+  background: var(--bg-code); border: 1px solid var(--border);
+  padding: .08em .35em; border-radius: 5px; overflow-wrap: anywhere;
+}
+kbd { border: 1px solid var(--border); border-bottom-width: 2px; padding: 0 .35em; border-radius: 4px; background: var(--bg-soft); }
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 30; height: 56px;
+  display: flex; align-items: center; gap: 12px; padding: 0 20px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px); border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
+.brand svg { width: 26px; height: 26px; }
+.brand .ver { font-weight: 500; font-size: 12px; color: var(--muted); border: 1px solid var(--border); padding: 1px 7px; border-radius: 999px; }
+.topbar .spacer { flex: 1; }
+.icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 36px; min-width: 36px; padding: 0 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg-soft); color: var(--text);
+  cursor: pointer; font: inherit; font-size: 14px; text-decoration: none;
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--text); }
+.icon-btn svg { width: 18px; height: 18px; }
+#menu-btn { display: none; }
+
+/* ---------- layout ---------- */
+.layout { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr); }
+.sidebar {
+  position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto;
+  padding: 18px 14px 40px 20px; border-right: 1px solid var(--border); background: var(--bg-soft);
+}
+.search { position: relative; margin-bottom: 14px; }
+.search input {
+  width: 100%; height: 36px; padding: 0 10px 0 32px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-size: 14px;
+}
+.search input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.search svg { position: absolute; left: 9px; top: 9px; width: 18px; height: 18px; color: var(--muted); }
+.toc { list-style: none; margin: 0; padding: 0; font-size: 14px; }
+.toc .group { margin: 16px 0 4px; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.toc a {
+  display: block; padding: 4px 10px; border-radius: 6px; color: var(--text); text-decoration: none;
+  border-left: 2px solid transparent;
+}
+.toc a.sub { padding-left: 22px; font-size: 13.5px; color: var(--muted); }
+.toc a:hover { background: var(--accent-bg); }
+.toc a.active { background: var(--accent-bg); border-left-color: var(--accent); color: var(--text); font-weight: 600; }
+.toc li[hidden] { display: none; }
+.toc .empty { color: var(--muted); padding: 6px 10px; font-size: 13px; }
+
+main { padding: 32px 48px 120px; max-width: 980px; }
+section { padding-top: 8px; }
+section + section { margin-top: 56px; border-top: 1px solid var(--border); padding-top: 40px; }
+h1, h2, h3, h4 { line-height: 1.25; margin: 0; }
+h2 { font-size: 28px; margin-bottom: 14px; letter-spacing: -.01em; }
+h3 { font-size: 20px; margin: 36px 0 10px; }
+h4 { font-size: 16px; margin: 24px 0 8px; }
+h2 .anchor, h3 .anchor { opacity: 0; margin-left: 8px; text-decoration: none; color: var(--muted); font-weight: 400; }
+h2:hover .anchor, h3:hover .anchor { opacity: 1; }
+p, ul, ol { margin: 0 0 14px; }
+li { margin: 3px 0; }
+.lead { font-size: 19px; color: var(--muted); max-width: 680px; }
+
+/* ---------- hero ---------- */
+.hero { padding: 24px 0 8px; }
+.hero h1 { font-size: 44px; letter-spacing: -.02em; margin-bottom: 10px; }
+.hero h1 span { color: var(--accent); }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 26px; }
+.badge { font-size: 13px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-soft); color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin: 20px 0; }
+.card { border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; background: var(--bg-soft); box-shadow: var(--shadow); }
+.card h4 { margin: 0 0 6px; font-size: 15px; }
+.card p { margin: 0; font-size: 14.5px; color: var(--muted); }
+
+/* ---------- flow diagram ---------- */
+.flow { display: flex; align-items: stretch; flex-wrap: wrap; gap: 0; margin: 22px 0; }
+.flow .node {
+  flex: 1 1 140px; border: 1px solid var(--border); background: var(--bg-soft);
+  border-radius: 10px; padding: 12px 14px; font-size: 14px; box-shadow: var(--shadow);
+}
+.flow .node b { display: block; font-family: var(--mono); font-size: 13.5px; color: var(--accent-strong); margin-bottom: 2px; }
+.flow .node span { color: var(--muted); font-size: 13px; }
+.flow .arrow { flex: 0 0 34px; display: flex; align-items: center; justify-content: center; color: var(--accent); font-size: 20px; }
+
+/* ---------- code ---------- */
+.code {
+  position: relative; margin: 14px 0 18px; border: 1px solid var(--border);
+  border-radius: 10px; background: var(--bg-code); overflow: hidden;
+}
+.code .label {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 8px 6px 14px; font-size: 12.5px; color: var(--muted); border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+}
+.code pre { margin: 0; padding: 14px 16px; overflow-x: auto; line-height: 1.55; tab-size: 2; }
+.code pre code { font-size: 13.5px; }
+.copy {
+  border: 1px solid var(--border); background: var(--bg); color: var(--muted); border-radius: 6px;
+  font: 12px var(--sans); padding: 3px 9px; cursor: pointer;
+}
+.copy:hover { color: var(--text); border-color: var(--accent); }
+.copy.done { color: var(--ok); border-color: var(--ok); }
+.tk-c { color: var(--tk-comment); font-style: italic; }
+.tk-k { color: var(--tk-key); }
+.tk-s { color: var(--tk-string); }
+.tk-w { color: var(--tk-keyword); font-weight: 600; }
+.tk-v { color: var(--tk-var); }
+.tk-n { color: var(--tk-num); }
+.tk-m { color: var(--accent-strong); font-weight: 600; }
+
+/* example: tabs yaml / output */
+.example { margin: 16px 0 22px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg-code); box-shadow: var(--shadow); }
+.example .tabs { display: flex; align-items: center; gap: 2px; padding: 6px 8px 0; border-bottom: 1px solid var(--border); background: var(--bg-soft); }
+.example .tabs button {
+  border: 1px solid transparent; border-bottom: none; background: none; color: var(--muted);
+  font: 13px var(--mono); padding: 7px 12px; border-radius: 8px 8px 0 0; cursor: pointer; margin-bottom: -1px;
+}
+.example .tabs button[aria-selected="true"] { background: var(--bg-code); border-color: var(--border); color: var(--text); font-weight: 600; }
+.example .tabs .spacer { flex: 1; }
+.example .tabs .copy { margin-bottom: 6px; }
+.example .pane { display: none; }
+.example .pane.active { display: block; }
+.example .pane pre { margin: 0; padding: 14px 16px; overflow: auto; max-height: 560px; line-height: 1.55; }
+.example .pane pre code { font-size: 13.5px; }
+.example .caption { padding: 8px 14px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--border); background: var(--bg-soft); }
+
+/* ---------- callouts ---------- */
+.note { border: 1px solid var(--info-border); border-left-width: 4px; background: var(--info-bg); border-radius: 8px; padding: 12px 16px; margin: 16px 0; font-size: 15px; }
+.note.warn { border-color: var(--warn-border); background: var(--warn-bg); }
+.note.danger { border-color: var(--danger-border); background: var(--danger-bg); }
+.note > :last-child { margin-bottom: 0; }
+.note strong:first-child { display: block; margin-bottom: 2px; }
+
+/* ---------- tables ---------- */
+.table-wrap { overflow-x: auto; margin: 14px 0 20px; border: 1px solid var(--border); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { background: var(--bg-soft); font-weight: 600; font-size: 13px; color: var(--muted); white-space: nowrap; }
+tr:last-child td { border-bottom: none; }
+td code { white-space: nowrap; }
+td.wrap code { white-space: normal; }
+.type { font-family: var(--mono); font-size: 12.5px; color: var(--tk-var); white-space: nowrap; }
+.req { font-size: 11px; font-weight: 700; color: var(--danger-border); text-transform: uppercase; letter-spacing: .04em; margin-left: 4px; }
+
+details.more { margin: 12px 0; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-soft); }
+details.more > summary { cursor: pointer; padding: 10px 14px; font-weight: 600; font-size: 14.5px; }
+details.more > div { padding: 0 14px 6px; }
+
+footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--muted); font-size: 14px; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 900px) {
+  #menu-btn { display: inline-flex; }
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .sidebar {
+    position: fixed; z-index: 25; left: 0; top: 56px; width: min(320px, 86vw);
+    transform: translateX(-100%); transition: transform .2s ease; box-shadow: var(--shadow);
+  }
+  body.nav-open .sidebar { transform: none; }
+  body.nav-open .scrim { display: block; }
+  main { padding: 24px 16px 100px; }
+  .hero h1 { font-size: 34px; }
+  .flow .arrow { flex-basis: 100%; height: 26px; transform: rotate(90deg); }
+  .topbar { padding: 0 12px; }
+  .hide-sm { display: none; }
+}
+.scrim { display: none; position: fixed; inset: 56px 0 0 0; background: rgba(0,0,0,.3); z-index: 20; }
+@media print {
+  .topbar, .sidebar, .copy, .scrim { display: none !important; }
+  .layout { display: block; }
+  .example .pane { display: block !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" id="menu-btn" aria-label="Open navigation" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+  </button>
+  <a class="brand" href="#top">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2l12 7v14l-12 7-12-7V9z" fill="#e8a317"/><path d="M16 9l6 3.5v7L16 23l-6-3.5v-7z" fill="#fff3d6"/></svg>
+    honeyconf.sh <span class="ver hide-sm">docs</span>
+  </a>
+  <span class="spacer"></span>
+  <a class="icon-btn" href="https://github.com/bee-software/honeyconf.sh" aria-label="Source on GitHub">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.4-4-1.4-.6-1.4-1.4-1.8-1.4-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5z"/></svg>
+    <span class="hide-sm">GitHub</span>
+  </a>
+  <button class="icon-btn" id="theme-btn" aria-label="Toggle color theme">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+  </button>
+</header>
+<div class="scrim" id="scrim"></div>
+
+<div class="layout">
+<nav class="sidebar" id="sidebar" aria-label="Table of contents">
+  <div class="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input type="search" id="toc-filter" placeholder="Filter sections…  ( / )" aria-label="Filter sections">
+  </div>
+  <ul class="toc" id="toc">
+    <li class="group">Getting started</li>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#how-it-works">How it works</a></li>
+    <li><a href="#installation">Installation</a></li>
+    <li><a href="#quick-start">Quick start</a></li>
+    <li class="group">Using it</li>
+    <li><a href="#cli">Command reference</a></li>
+    <li><a class="sub" href="#cli-compile">compile.sh</a></li>
+    <li><a class="sub" href="#cli-deploy">deploy.sh</a></li>
+    <li><a class="sub" href="#cli-execute">execute.sh</a></li>
+    <li><a class="sub" href="#cli-list">list_machines.sh</a></li>
+    <li><a class="sub" href="#cli-profile">profile_all.sh</a></li>
+    <li><a class="sub" href="#cli-commands">Ready-made commands</a></li>
+    <li class="group">Configuration</li>
+    <li><a href="#config">machines.yaml</a></li>
+    <li><a class="sub" href="#cfg-machine">Machine &amp; credentials</a></li>
+    <li><a class="sub" href="#cfg-options">options</a></li>
+    <li><a class="sub" href="#cfg-system">system</a></li>
+    <li><a class="sub" href="#cfg-swap">swap</a></li>
+    <li><a class="sub" href="#cfg-access">access_control</a></li>
+    <li><a class="sub" href="#cfg-service-accounts">Service accounts</a></li>
+    <li><a class="sub" href="#cfg-mounts">mounts (ext4 / LUKS)</a></li>
+    <li><a class="sub" href="#cfg-zfs">mounts (ZFS)</a></li>
+    <li><a class="sub" href="#cfg-network">network</a></li>
+    <li><a class="sub" href="#cfg-monitoring">monitoring</a></li>
+    <li><a class="sub" href="#cfg-roles">roles</a></li>
+    <li class="group">Guides</li>
+    <li><a href="#recipes">Recipes</a></li>
+    <li><a href="#exit-codes">Exit codes &amp; intervention</a></li>
+    <li><a href="#security">Security notes</a></li>
+    <li><a href="#schema">JSON Schema</a></li>
+    <li><a href="#contributing">Testing &amp; contributing</a></li>
+    <li class="empty" id="toc-empty" hidden>No matching section.</li>
+  </ul>
+</nav>
+
+<main id="top">
+
+<!-- ================================================================ -->
+<section id="overview" class="hero" data-title="Overview">
+  <h1>honey<span>conf</span>.sh</h1>
+  <p class="lead">System configuration management, as simple as can be. Describe your machines in one YAML file, compile each one into a plain bash script, and pipe it over SSH.</p>
+  <div class="badges">
+    <span class="badge">Pure bash</span>
+    <span class="badge">yq + jq at compile time</span>
+    <span class="badge">Nothing installed on targets</span>
+    <span class="badge">Debian / Ubuntu</span>
+    <span class="badge">Tested with bats</span>
+  </div>
+
+  <div class="cards">
+    <div class="card"><h4>Easy to modify</h4><p>Every feature is a small shell script under <code>emitters/</code>. Adding one is adding a file.</p></div>
+    <div class="card"><h4>Simple mapping to shell</h4><p>The output is the exact bash that will run, so you can read it, diff it and review it before anything changes.</p></div>
+    <div class="card"><h4>Idempotent</h4><p>Generated scripts check before they act, so running a deploy twice is safe and quick.</p></div>
+    <div class="card"><h4>Agentless</h4><p>Targets only need SSH, <code>sudo</code> and bash. No daemon, no Python, no runtime.</p></div>
+  </div>
+
+</section>
+
+<!-- ================================================================ -->
+<section id="how-it-works" data-title="How it works">
+  <h2>How it works<a class="anchor" href="#how-it-works">#</a></h2>
+  <p>honeyconf.sh works like a small compiler. Your <code>machines.yaml</code> is the source, each <em>emitter</em> is a compiler pass, and the result is a self-contained bash script that serves as the intermediate representation. Deploying means streaming that script to <code>sudo /bin/bash</code> on the target over SSH.</p>
+
+  <div class="flow" role="img" aria-label="machines.yaml goes to compile.sh, which runs emitters, producing a bash script that deploy.sh pipes over ssh to the target">
+    <div class="node"><b>machines.yaml</b><span>Declarative description of every machine</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>compile.sh</b><span>Runs each emitter for one machine</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>script.sh</b><span>Plain, readable, idempotent bash</span></div>
+    <div class="arrow">→</div>
+    <div class="node"><b>ssh … sudo bash</b><span><code>deploy.sh</code> streams it to the target</span></div>
+  </div>
+
+  <h3 id="emitters">Emitters and their order</h3>
+  <p>Every compiled script starts with <code>#!/bin/bash</code> and <code>set -eu</code>, so it stops at the first failing command or unset variable. Then come a few helper functions, then the output of each emitter in this fixed order. Each emitter wraps its output in <code># BEGIN: name</code> / <code># END: name</code> markers so the script is easy to scan.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Emitter</th><th>Runs when</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><code>common_tools</code></td><td>Always</td><td>Defines <code>ensure_apt_fresh</code>, <code>ensure_installed</code> and <code>halt_intervention_required</code></td></tr>
+      <tr><td>2</td><td><code>hostname</code></td><td><code>options.manage_hostname</code> ≠ false</td><td>Sets the hostname to the machine key</td></tr>
+      <tr><td>3</td><td><code>system_packages</code></td><td><code>system.packages</code> is set</td><td>Installs apt packages</td></tr>
+      <tr><td>4</td><td><code>system_files</code></td><td><code>system.files</code> is set</td><td>Writes whole files</td></tr>
+      <tr><td>5</td><td><code>swap</code></td><td><code>swap</code> is set</td><td>Creates and enables <code>/swapfile</code></td></tr>
+      <tr><td>6</td><td><code>ssh_authorized_keys</code></td><td><code>access_control</code> is set</td><td>Writes the admin user's <code>authorized_keys</code></td></tr>
+      <tr><td>7</td><td><code>volumes</code></td><td><code>mounts</code> is set</td><td>Opens LUKS devices, mounts ext4 volumes, imports zpools, creates datasets</td></tr>
+      <tr><td>8</td><td><code>networking</code></td><td><code>network</code> is set</td><td>Writes netplan or ifupdown config and reloads the network</td></tr>
+      <tr><td>9</td><td><code>ensure_docker_running</code></td><td>Role <code>application_server</code></td><td>Starts <code>docker.service</code> if installed</td></tr>
+      <tr><td>10</td><td><code>ssh_password_authentication</code></td><td><code>options.disable_ssh_password_authentication</code> ≠ false</td><td>Forces <code>PasswordAuthentication no</code></td></tr>
+      <tr><td>11</td><td><code>fail2ban</code></td><td><code>options.manage_fail2ban</code> ≠ false</td><td>Installs fail2ban</td></tr>
+      <tr><td>12</td><td><code>updatedb</code></td><td><code>options.manage_updatedb</code> ≠ false</td><td>Stops <code>locate</code> from indexing <code>/mnt</code> and aufs</td></tr>
+      <tr><td>13</td><td><code>monitoring</code></td><td><code>monitoring.type: node_exporter</code></td><td>Installs Prometheus node_exporter with mutual TLS</td></tr>
+      <tr><td>14</td><td><code>application_server_role</code></td><td>Role <code>application_server</code></td><td>Installs Docker and makes it wait for mounts</td></tr>
+      <tr><td>15</td><td><code>service_accounts</code></td><td><code>access_control.service_accounts</code> is set</td><td>Creates users, groups, sudo rules and SSH keys</td></tr>
+    </tbody>
+  </table></div>
+  <p>Service accounts come last on purpose: groups such as <code>docker</code> only exist after the application server role has run.</p>
+
+  <h3 id="helpers">Helper functions in every script</h3>
+  <p>The first part of every compiled script is the same. Emitters call these functions instead of running <code>apt-get</code> directly:</p>
+  <div class="code" data-lang="bash" data-label="compiled script — common_tools">ensure_apt_fresh() {
+  if test -z "$(find /var/cache/apt/pkgcache.bin -mmin -60)"; then
+    apt-get update -q
+  fi
+}
+
+ensure_installed() {
+  local packages=$*
+
+  for package in $packages; do
+    if ! dpkg -l $package | grep -q '^ii'; then
+      ensure_apt_fresh
+      DEBIAN_FRONTEND=noninteractive apt-get -y -q install $package
+    fi
+  done
+}
+
+halt_intervention_required() {
+  echo "************************************************************"
+  cat -
+  echo "************************************************************"
+  echo "PROCESS HALTED. Human intervention required"
+  exit 101
+}</div>
+  <ul>
+    <li><code>ensure_installed pkg…</code> installs only the packages that are missing, so a run where everything is already installed makes no apt calls.</li>
+    <li><code>ensure_apt_fresh</code> runs <code>apt-get update</code> only when the package cache is older than one hour.</li>
+    <li><code>halt_intervention_required</code> prints instructions from standard input and exits with code <code>101</code>. See <a href="#exit-codes">Exit codes</a>.</li>
+  </ul>
+</section>
+
+<!-- ================================================================ -->
+<section id="installation" data-title="Installation">
+  <h2>Installation<a class="anchor" href="#installation">#</a></h2>
+  <p>There is nothing to build. Clone the repository and make sure the compile-time tools are on your <code>PATH</code>.</p>
+  <div class="code" data-lang="shell">git clone https://github.com/bee-software/honeyconf.sh.git
+cd honeyconf.sh</div>
+
+  <h3>On your workstation</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Tool</th><th>Needed for</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td><a href="https://github.com/mikefarah/yq">yq</a></td><td>Compiling</td><td>Version 4+ recommended. Version 3.4 also works.</td></tr>
+      <tr><td><a href="https://github.com/jqlang/jq">jq</a></td><td>Compiling</td><td>Used for every lookup in <code>machines.yaml</code>.</td></tr>
+      <tr><td>bash, ssh</td><td>Deploying</td><td>Any recent bash and OpenSSH client.</td></tr>
+      <tr><td><a href="https://github.com/bats-core/bats-core">bats-core</a></td><td>Running tests</td><td>Or use Docker with <code>make test</code>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>On target machines</h3>
+  <ul>
+    <li>Debian or Ubuntu (the scripts use <code>apt-get</code>, <code>dpkg</code> and <code>adduser</code>) with systemd.</li>
+    <li>An SSH account named in <code>credentials.username</code> that can run <code>sudo /bin/bash</code> without a password prompt.</li>
+    <li>Network access to your apt mirrors. With <code>monitoring.source: upstream-1.2.2</code>, it also needs access to GitHub.</li>
+  </ul>
+</section>
+
+<!-- ================================================================ -->
+<section id="quick-start" data-title="Quick start">
+  <h2>Quick start<a class="anchor" href="#quick-start">#</a></h2>
+
+  <h4>1. Describe a machine</h4>
+  <p>Create a <code>machines.yaml</code>. Each key under <code>machines</code> is the hostname used for SSH, and it also becomes the machine's hostname.</p>
+  <div class="code" data-lang="yaml" data-label="machines.yaml">machines:
+  web1.example.com:
+    credentials:
+      username: localadmin
+    access_control:
+      authorized_keys_user: localadmin
+      authorized_keys: |
+        ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample alice@laptop</div>
+
+  <h4>2. Compile and read the script</h4>
+  <p>Compiling only reads the YAML. It never connects to the machine, so you can review the result first.</p>
+  <div class="code" data-lang="shell">./compile.sh machines.yaml web1.example.com</div>
+  <p>This machine sets no <code>options</code>, so the hostname, SSH hardening, fail2ban and updatedb emitters all run by default:</p>
+  <div class="code" data-lang="bash" data-label="output (after the helper functions)"># BEGIN: hostname
+echo "web1.example.com" &gt; /etc/hostname
+hostname web1.example.com
+
+grep '^127.0.1.1' /etc/hosts | grep -q 'web1.example.com' || sed -i 's/^\(127.0.1.1\s.*\)/\1 web1.example.com/g' /etc/hosts
+# END: hostname
+# BEGIN: ssh_authorized_keys
+mkdir -p "/home/localadmin/.ssh"
+cat &lt;&lt;EOF &gt; /home/localadmin/.ssh/authorized_keys
+#
+# This file is managed by an automated provisioning task. Any manual change will eventually be overwritten.
+#
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample alice@laptop
+
+EOF
+chmod 644 /home/localadmin/.ssh/authorized_keys
+# END: ssh_authorized_keys
+# BEGIN: ssh_password_authentication
+if ! grep -qi '^PasswordAuthentication no' /etc/ssh/sshd_config; then
+  sed -i '/^PasswordAuthentication/Id' /etc/ssh/sshd_config
+  echo 'PasswordAuthentication no' &gt;&gt; /etc/ssh/sshd_config
+  systemctl reload ssh.service
+fi
+# END: ssh_password_authentication
+# BEGIN: fail2ban
+ensure_installed fail2ban
+# END: fail2ban
+# BEGIN: updatedb
+if [ -f /etc/updatedb.conf ]; then
+  . /etc/updatedb.conf
+  if [ "$PRUNEPATHS" == "${PRUNEPATHS/\/mnt/}" ]; then
+    sed -i '/PRUNEPATHS/c\PRUNEPATHS="'"$PRUNEPATHS /mnt"'"' /etc/updatedb.conf
+  fi
+  if [ "$PRUNEFS" == "${PRUNEFS/aufs/}" ]; then
+    sed -i '/PRUNEFS/c\PRUNEFS="'"$PRUNEFS aufs"'"' /etc/updatedb.conf
+  fi
+fi
+# END: updatedb</div>
+
+  <h4>3. Deploy</h4>
+  <div class="code" data-lang="shell">./deploy.sh machines.yaml web1.example.com</div>
+  <div class="code" data-lang="text" data-label="terminal">web1.example.com: #!/bin/bash
+web1.example.com: set -eu
+web1.example.com: + set -eu
+…
+web1.example.com: OK</div>
+  <p>Every line is prefixed with the machine name. The script runs with <code>bash -vx</code>, so you see each command as it runs. If anything fails, the deploy stops and <code>OK</code> is not printed.</p>
+</section>
+
+<!-- ================================================================ -->
+<section id="cli" data-title="Command reference">
+  <h2>Command reference<a class="anchor" href="#cli">#</a></h2>
+  <p>All commands can be run from any directory. Each one finds its helpers relative to its own location.</p>
+
+  <h3 id="cli-compile">compile.sh</h3>
+  <div class="code" data-lang="shell">./compile.sh &lt;machines.yaml&gt; &lt;machine-name&gt;</div>
+  <p>Writes the full script for one machine to standard output. The machine name must match a key under <code>machines</code> exactly. Exits with code 1 if the machine is missing or the YAML is invalid. Compiling ignores <code>managed: false</code>.</p>
+  <div class="code" data-lang="shell"># Save a script and review it
+./compile.sh machines.yaml web1.example.com &gt; web1.sh
+less web1.sh
+
+# See what a configuration change will do
+git stash &amp;&amp; ./compile.sh machines.yaml web1.example.com &gt; before.sh
+git stash pop &amp;&amp; ./compile.sh machines.yaml web1.example.com &gt; after.sh
+diff -u before.sh after.sh</div>
+
+  <h3 id="cli-deploy">deploy.sh</h3>
+  <div class="code" data-lang="shell">./deploy.sh &lt;machines.yaml&gt; &lt;hostname-pattern&gt; [identity-file]</div>
+  <p>Compiles and runs the script on every managed machine whose name matches <code>&lt;hostname-pattern&gt;</code>, one machine at a time.</p>
+  <ul>
+    <li><strong>Pattern:</strong> a <code>grep</code> regular expression matched against machine names (see <a href="#cli-list"><code>list_machines.sh</code></a>).</li>
+    <li><strong>Login:</strong> <code>ssh -l &lt;credentials.username&gt; &lt;machine&gt; sudo /bin/bash -vx</code>.</li>
+    <li><strong>Identity file:</strong> the optional third argument is passed to SSH as <code>-i</code>.</li>
+    <li><strong>Failure:</strong> the first machine that fails stops the run. Machines after it are not touched.</li>
+  </ul>
+  <div class="code" data-lang="shell"># One machine
+./deploy.sh machines.yaml '^web1\.example\.com$'
+
+# All web servers, with a specific key
+./deploy.sh machines.yaml '^web' ~/.ssh/ops_ed25519
+
+# Everything that is managed
+./deploy.sh machines.yaml .</div>
+  <div class="note warn"><strong>Patterns are substrings</strong><code>web1</code> also matches <code>web10.example.com</code>. Use <code>^</code> and <code>$</code> and escape the dots when you mean a single machine.</div>
+
+  <h3 id="cli-execute">execute.sh</h3>
+  <div class="code" data-lang="shell">./execute.sh &lt;machines.yaml&gt; &lt;hostname-pattern&gt; &lt;commands-file&gt;</div>
+  <p>Runs any shell file as root on the matching machines, using the same SSH login as <code>deploy.sh</code>. It prints <code>&lt;machine&gt;: DONE</code> after each one. This is useful for one-off maintenance that should not be part of the configuration.</p>
+  <div class="code" data-lang="shell">./execute.sh machines.yaml '^db' commands/apt_upgrade.sh</div>
+
+  <h3 id="cli-list">list_machines.sh</h3>
+  <div class="code" data-lang="shell">./list_machines.sh &lt;machines.yaml&gt; &lt;hostname-pattern&gt;</div>
+  <p>Prints the managed machines that match the pattern, in file order. Machines with <code>managed: false</code> are skipped. The other commands use this to pick their targets, so run it first to check what a pattern will hit.</p>
+  <div class="code" data-lang="shell">$ ./list_machines.sh machines.yaml example.com
+web1.example.com
+app.example.com
+# legacy.example.com is not listed: it has managed: false</div>
+
+  <h3 id="cli-profile">profile_all.sh</h3>
+  <div class="code" data-lang="shell">./profile_all.sh &lt;machines.yaml&gt; &lt;hostname-pattern&gt; &gt; inventory.tsv</div>
+  <p>Collects facts from each matching machine and prints a tab-separated table you can paste into a spreadsheet. Columns:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Column</th><th>Source on the machine</th></tr></thead>
+    <tbody>
+      <tr><td>Machine name</td><td>Key in <code>machines.yaml</code></td></tr>
+      <tr><td>Hostname (long)</td><td><code>hostname -f</code></td></tr>
+      <tr><td>Operating system</td><td><code>lsb_release -d -s</code></td></tr>
+      <tr><td>Kernel release</td><td><code>uname -r</code></td></tr>
+      <tr><td>Apt</td><td><code>apt-check</code>: pending updates;security updates (or <code>-</code>)</td></tr>
+      <tr><td>Reboot?</td><td>Whether <code>/var/run/reboot-required</code> exists</td></tr>
+      <tr><td>Date of last boot</td><td><code>uptime -s</code></td></tr>
+      <tr><td>Docker version</td><td><code>docker --version</code></td></tr>
+      <tr><td>Docker-compose version</td><td><code>docker-compose --version</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 id="cli-commands">Ready-made commands</h3>
+  <p>The <code>commands/</code> folder holds scripts to use with <code>execute.sh</code>:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>File</th><th>Does</th></tr></thead>
+    <tbody>
+      <tr><td><code>apt_update.sh</code></td><td><code>apt-get update</code></td></tr>
+      <tr><td><code>apt_upgrade.sh</code></td><td>Updates, then runs a non-interactive <code>apt-get upgrade --with-new-pkgs</code></td></tr>
+      <tr><td><code>apt_autoremove.sh</code></td><td><code>apt-get -y autoremove</code></td></tr>
+      <tr><td><code>check_apt_daily.sh</code></td><td>Shows the status of <code>apt-daily.timer</code></td></tr>
+      <tr><td><code>check_mounts.sh</code></td><td>Checks that every Docker bind mount points to the same inode on the host and in the container. Shows ✅ or ❌ per mount, which catches containers started before a volume was mounted.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="code" data-lang="shell"># Monthly patching across the fleet
+./execute.sh machines.yaml . commands/apt_upgrade.sh
+./execute.sh machines.yaml . commands/apt_autoremove.sh
+./profile_all.sh machines.yaml . | column -t -s $'\t'   # who needs a reboot?</div>
+</section>
+
+<!-- ================================================================ -->
+<section id="config" data-title="machines.yaml">
+  <h2>machines.yaml reference<a class="anchor" href="#config">#</a></h2>
+  <p>The file has one top-level key, <code>machines</code>. Under it, each key is a machine name: the SSH target and the hostname. Keys may contain letters, digits, <code>.</code>, <code>_</code> and <code>-</code>.</p>
+  <div class="code" data-lang="yaml" data-label="machines.yaml — every top-level setting of a machine">machines:
+  host.example.com:
+    managed: true            # include in deploy / execute / profile runs
+    credentials: {}          # SSH login
+    options: {}              # turn default behaviours off
+    roles: []                # application_server
+    system: {}               # packages and files
+    swap: {}                 # swap file
+    access_control: {}       # SSH keys and service accounts
+    mounts: {}               # disks: ext4, LUKS, ZFS
+    network: {}              # dmz / internal / public / dialin
+    monitoring: {}           # prometheus node_exporter</div>
+  <p>An empty machine (<code>host.example.com: {}</code>) is valid. It still gets the default hostname, SSH hardening, fail2ban and updatedb steps.</p>
+  <div class="note"><strong>Reusing values with YAML anchors</strong>Anchors and aliases work, so you can share blocks between machines. Keys outside <code>machines</code> are ignored, which makes them a good place for anchors:
+  <div class="code" data-lang="yaml">x-admin-keys: &amp;admin_keys
+  authorized_keys_user: localadmin
+  authorized_keys: |
+    ssh-ed25519 AAAA… alice@laptop
+
+machines:
+  web1.example.com:
+    access_control: *admin_keys
+  web2.example.com:
+    access_control: *admin_keys</div></div>
+
+  <!-- ---------------- machine ---------------- -->
+  <h3 id="cfg-machine">Machine &amp; credentials</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>managed</code></td><td class="type">boolean</td><td><code>true</code></td><td>Set to <code>false</code> to leave a machine out of <code>deploy.sh</code>, <code>execute.sh</code> and <code>profile_all.sh</code> while keeping it in the inventory.</td></tr>
+      <tr><td><code>credentials.username</code><span class="req">req</span></td><td class="type">string</td><td>—</td><td>SSH login. It needs passwordless <code>sudo</code>. Required for <code>deploy.sh</code>, <code>execute.sh</code> and <code>profile_all.sh</code>.</td></tr>
+      <tr><td><code>credentials.password</code></td><td class="type">string</td><td>—</td><td>Allowed for your own records. honeyconf.sh never uses it.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="code" data-lang="yaml">machines:
+  web1.example.com:
+    credentials:
+      username: localadmin
+  old-nas.example.com:
+    managed: false           # documented, but never deployed to
+    credentials:
+      username: admin</div>
+
+  <!-- ---------------- options ---------------- -->
+  <h3 id="cfg-options">options</h3>
+  <p>Turns the default behaviours on or off. All four are on unless you set them to <code>false</code>.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Key</th><th>Default</th><th>When enabled</th></tr></thead>
+    <tbody>
+      <tr><td><code>manage_hostname</code></td><td><code>true</code></td><td>Writes the machine key to <code>/etc/hostname</code>, applies it with <code>hostname</code>, and adds it to the <code>127.0.1.1</code> line of <code>/etc/hosts</code>.</td></tr>
+      <tr><td><code>disable_ssh_password_authentication</code></td><td><code>true</code></td><td>Removes any <code>PasswordAuthentication</code> line from <code>sshd_config</code>, appends <code>PasswordAuthentication no</code> and reloads sshd. Does nothing if the setting is already correct.</td></tr>
+      <tr><td><code>manage_fail2ban</code></td><td><code>true</code></td><td>Installs <code>fail2ban</code> with its default jails.</td></tr>
+      <tr><td><code>manage_updatedb</code></td><td><code>true</code></td><td>Adds <code>/mnt</code> to <code>PRUNEPATHS</code> and <code>aufs</code> to <code>PRUNEFS</code> in <code>/etc/updatedb.conf</code>, so <code>locate</code> doesn't crawl your volumes and Docker layers.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="example">
+    <div class="tabs" role="tablist"><button role="tab" aria-selected="true">machines.yaml</button><button role="tab" aria-selected="false">compiled</button><span class="spacer"></span></div>
+    <div class="pane active" data-lang="yaml">machines:
+  defaults.example.com: {}    # all four options left on</div>
+    <div class="pane" data-lang="bash"># BEGIN: hostname
+echo "defaults.example.com" &gt; /etc/hostname
+hostname defaults.example.com
+
+grep '^127.0.1.1' /etc/hosts | grep -q 'defaults.example.com' || sed -i 's/^\(127.0.1.1\s.*\)/\1 defaults.example.com/g' /etc/hosts
+# END: hostname
+# BEGIN: ssh_password_authentication
+if ! grep -qi '^PasswordAuthentication no' /etc/ssh/sshd_config; then
+  sed -i '/^PasswordAuthentication/Id' /etc/ssh/sshd_config
+  echo 'PasswordAuthentication no' &gt;&gt; /etc/ssh/sshd_config
+  systemctl reload ssh.service
+fi
+# END: ssh_password_authentication
+# BEGIN: fail2ban
+ensure_installed fail2ban
+# END: fail2ban
+# BEGIN: updatedb
+if [ -f /etc/updatedb.conf ]; then
+  . /etc/updatedb.conf
+  if [ "$PRUNEPATHS" == "${PRUNEPATHS/\/mnt/}" ]; then
+    sed -i '/PRUNEPATHS/c\PRUNEPATHS="'"$PRUNEPATHS /mnt"'"' /etc/updatedb.conf
+  fi
+  if [ "$PRUNEFS" == "${PRUNEFS/aufs/}" ]; then
+    sed -i '/PRUNEFS/c\PRUNEFS="'"$PRUNEFS aufs"'"' /etc/updatedb.conf
+  fi
+fi
+# END: updatedb</div>
+  </div>
+  <p>To turn every default off, for example on a machine you only want to give swap to:</p>
+  <div class="code" data-lang="yaml">options:
+  manage_hostname: false
+  manage_fail2ban: false
+  manage_updatedb: false
+  disable_ssh_password_authentication: false</div>
+  <div class="note warn"><strong>Before you disable password logins</strong>Check that key-based login works for <code>credentials.username</code> first, by setting <a href="#cfg-access"><code>access_control</code></a> in the same file. Otherwise you can lock yourself out.</div>
+
+  <!-- ---------------- system ---------------- -->
+  <h3 id="cfg-system">system</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>system.packages</code></td><td class="type">string[]</td><td>Apt packages to install if missing. Packages are never removed or upgraded.</td></tr>
+      <tr><td><code>system.files</code></td><td class="type">object[]</td><td>Files written in full on every deploy.</td></tr>
+      <tr><td><code>system.files[].path</code><span class="req">req</span></td><td class="type">string</td><td>Absolute path. The parent directory must already exist.</td></tr>
+      <tr><td><code>system.files[].contents</code></td><td class="type">string</td><td>File contents. Use a YAML block scalar (<code>|</code>).</td></tr>
+    </tbody>
+  </table></div>
+  <div class="example">
+    <div class="tabs" role="tablist"><button role="tab" aria-selected="true">machines.yaml</button><button role="tab" aria-selected="false">compiled</button><span class="spacer"></span></div>
+    <div class="pane active" data-lang="yaml">machines:
+  packages.example.com:
+    system:
+      packages: [htop, curl, unattended-upgrades]
+      files:
+        - path: /etc/motd
+          contents: |
+            Managed by honeyconf.sh — local changes will be overwritten.</div>
+    <div class="pane" data-lang="bash"># BEGIN: system_packages
+ensure_installed htop
+ensure_installed curl
+ensure_installed unattended-upgrades
+# END: system_packages
+# BEGIN: system_files
+cat &lt;&lt;EOF &gt; /etc/motd
+Managed by honeyconf.sh — local changes will be overwritten.
+EOF
+
+# END: system_files</div>
+  </div>
+  <div class="note warn"><strong>Shell expansion inside file contents</strong>Contents go into an unquoted heredoc (<code>cat &lt;&lt;EOF</code>), so the target's shell expands <code>$VARIABLES</code>, <code>$(commands)</code> and backticks when the script runs. Write <code>\$</code> and <code>\`</code> wherever you need them literally, for example in shell scripts or systemd units. The same applies to <code>authorized_keys</code> and <code>monitoring</code> certificates.</div>
+  <div class="code" data-lang="yaml">system:
+  files:
+    - path: /etc/profile.d/prompt.sh
+      contents: |
+        export PS1="[\$(hostname -s)] \w \$ "</div>
+
+  <!-- ---------------- swap ---------------- -->
+  <h3 id="cfg-swap">swap</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>swap.size_mb</code><span class="req">req</span></td><td class="type">integer</td><td>Size of <code>/swapfile</code> in MB.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Creates <code>/swapfile</code>, adds it to <code>/etc/fstab</code>, turns it on, and sets <code>vm.swappiness=10</code> if no swappiness is configured yet.</p>
+  <div class="example">
+    <div class="tabs" role="tablist"><button role="tab" aria-selected="true">machines.yaml</button><button role="tab" aria-selected="false">compiled</button><span class="spacer"></span></div>
+    <div class="pane active" data-lang="yaml">machines:
+  swap.example.com:
+    swap:
+      size_mb: 2048</div>
+    <div class="pane" data-lang="bash"># BEGIN: swap
+if ! test -f /swapfile; then
+  fallocate -l 2048M /swapfile
+  chmod 600 /swapfile
+  mkswap /swapfile
+fi
+
+if ! grep -q '^/swapfile swap' /etc/fstab; then
+  echo "/swapfile swap swap defaults 0 0" &gt;&gt; /etc/fstab
+fi
+
+if ! swapon --show=name --noheadings | grep -q '^/swapfile$'; then
+  swapon /swapfile
+fi
+
+if ! grep -q '^vm.swappiness=' /etc/sysctl.conf; then
+  echo 'vm.swappiness=10' &gt;&gt; /etc/sysctl.conf
+  sysctl -p
+fi
+# END: swap</div>
+  </div>
+  <div class="note"><strong>Changing the size later</strong>The file is only created when it does not exist, so editing <code>size_mb</code> later has no effect. To resize, run <code>swapoff /swapfile &amp;&amp; rm /swapfile</code> on the machine and deploy again.</div>
+
+  <!-- ---------------- access_control ---------------- -->
+  <h3 id="cfg-access">access_control</h3>
+  <p>Manages the <code>authorized_keys</code> file of the admin account, usually the same user as <code>credentials.username</code>. The file is overwritten on every deploy, so honeyconf.sh is the only source of truth for who can log in.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>authorized_keys</code></td><td class="type">string</td><td>Public keys, one per line.</td></tr>
+      <tr><td><code>authorized_keys_additional</code></td><td class="type">string</td><td>More keys appended after <code>authorized_keys</code>. Useful to add per-machine keys to a shared anchor.</td></tr>
+      <tr><td><code>authorized_keys_user</code></td><td class="type">string</td><td>Writes to <code>/home/&lt;user&gt;/.ssh/authorized_keys</code>.</td></tr>
+      <tr><td><code>authorized_keys_file</code></td><td class="type">string</td><td>Explicit path. Takes precedence over <code>authorized_keys_user</code>. Use it for <code>root</code> or for users whose home is not under <code>/home</code>.</td></tr>
+      <tr><td><code>service_accounts</code></td><td class="type">object[]</td><td>See <a href="#cfg-service-accounts">Service accounts</a>.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note danger"><strong>You must set <code>authorized_keys_user</code> or <code>authorized_keys_file</code></strong>If <code>access_control</code> exists but neither key is set, compiling fails. This includes the case where you only define <code>service_accounts</code>.</div>
+  <div class="example">
+    <div class="tabs" role="tablist"><button role="tab" aria-selected="true">machines.yaml</button><button role="tab" aria-selected="false">compiled</button><span class="spacer"></span></div>
+    <div class="pane active" data-lang="yaml">machines:
+  keys.example.com:
+    access_control:
+      authorized_keys_user: localadmin
+      authorized_keys: |
+        ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample alice@laptop
+      authorized_keys_additional: |
+        ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample bob@laptop</div>
+    <div class="pane" data-lang="bash"># BEGIN: ssh_authorized_keys
+mkdir -p "/home/localadmin/.ssh"
+cat &lt;&lt;EOF &gt; /home/localadmin/.ssh/authorized_keys
+#
+# This file is managed by an automated provisioning task. Any manual change will eventually be overwritten.
+#
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample alice@laptop
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample bob@laptop
+EOF
+chmod 644 /home/localadmin/.ssh/authorized_keys
+# END: ssh_authorized_keys</div>
+  </div>
+
+  <!-- ---------------- service accounts ---------------- -->
+  <h3 id="cfg-service-accounts">Service accounts</h3>
+  <p>Creates local accounts for automation, such as a CI user that runs <code>docker compose</code>. Accounts are created without a password and are never deleted.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>username</code><span class="req">req</span></td><td class="type">string</td><td>—</td><td>Created with <code>adduser --disabled-password</code> if it does not exist.</td></tr>
+      <tr><td><code>home</code><span class="req">req</span></td><td class="type">string</td><td>—</td><td>Home directory.</td></tr>
+      <tr><td><code>groups</code></td><td class="type">string[]</td><td><code>[]</code></td><td>Extra groups, added with <code>usermod -aG</code>. The groups must already exist. Groups are only added, never removed.</td></tr>
+      <tr><td><code>sudo</code></td><td class="type">boolean</td><td><code>false</code></td><td><code>true</code> writes <code>/etc/sudoers.d/service_account_&lt;user&gt;</code> granting <code>NOPASSWD:ALL</code>, checked with <code>visudo</code> before it is installed. <code>false</code> deletes that file.</td></tr>
+      <tr><td><code>authorized_keys</code></td><td class="type">string</td><td>—</td><td>If present, overwrites <code>&lt;home&gt;/.ssh/authorized_keys</code>.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="example">
+    <div class="tabs" role="tablist"><button role="tab" aria-selected="true">machines.yaml</button><button role="tab" aria-selected="false">compiled</button><span class="spacer"></span></div>
+    <div class="pane active" data-lang="yaml">machines:
+  svc.example.com:
+    access_control:
+      authorized_keys_file: /root/.ssh/authorized_keys
+      authorized_keys: |
+        ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample alice@laptop
+      service_accounts:
+        - username: deploy
+          home: /home/deploy
+          groups: [docker]
+          sudo: true
+          authorized_keys: |
+            ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample ci@runner
+        - username: backup
+          home: /var/lib/backup</div>
+    <div class="pane" data-lang="bash"># BEGIN: ssh_authorized_keys
+mkdir -p "/root/.ssh"
+cat &lt;&lt;EOF &gt; /root/.ssh/authorized_keys
+#
+# This file is managed by an automated provisioning task. Any manual change will eventually be overwritten.
+#
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample alice@laptop
+
+EOF
+chmod 644 /root/.ssh/authorized_keys
+# END: ssh_authorized_keys
+# BEGIN: service_accounts
+# deploy local account
+if ! grep -q '^deploy:' /etc/passwd; then
+  adduser --disabled-password --gecos "" --home /home/deploy deploy
+fi
+usermod -aG docker deploy
+cat &lt;&lt;EOF &gt; /etc/sudoers.d/service_account_deploy.tmp
+#
+# This file is managed by an automated provisioning task. Any manual change will eventually be overwritten.
+#
+deploy ALL=(ALL) NOPASSWD:ALL
+EOF
+visudo -cf /etc/sudoers.d/service_account_deploy.tmp
+chmod 0440 /etc/sudoers.d/service_account_deploy.tmp
+mv /etc/sudoers.d/service_account_deploy.tmp /etc/sudoers.d/service_account_deploy
+if ! test -d /home/deploy/.ssh; then
+  mkdir -p /home/deploy/.ssh
+  chmod 0700 /home/deploy/.ssh
+fi
+
+cat &lt;&lt;EOF &gt; /home/deploy/.ssh/authorized_keys
+#
+# This file is managed by an automated provisioning task. Any manual change will eventually be overwritten.
+#
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample ci@runner
+EOF
+chmod 0644 /home/deploy/.ssh/authorized_keys
+chown -R deploy:deploy /home/deploy/.ssh/
+# backup local account
+if ! grep -q '^backup:' /etc/passwd; then
+  adduser --disabled-password --gecos "" --home /var/lib/backup backup
+fi
+rm -f /etc/sudoers.d/service_account_backup
+# END: service_accounts</div>
+  </div>
+  <div class="note"><strong>Taking sudo away</strong>To revoke sudo, set <code>sudo: false</code> or remove the key, then deploy. Removing the whole account from the YAML leaves both the user and its sudoers file on the machine.</div>
+
+  <!-- ---------------- mounts ext4 ---------------- -->
+  <h3 id="cfg-mounts">mounts — ext4 and LUKS</h3>
+  <p>Each key under <code>mounts</code> is a volume name. Volumes that are not ZFS are mounted at <code>/mnt/external_storage/&lt;name&gt;</code> through an <code>/etc/fstab</code> entry with <code>noauto</code>, so a missing disk never blocks booting. Every deploy mounts them again.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>device</code></td><td class="type">string</td><td>—</td><td>Block device, for example <code>/dev/sdb</code> or <code>/dev/disk/by-id/…</code>.</td></tr>
+      <tr><td><code>devices</code></td><td class="type">string[]</td><td>—</td><td>Takes precedence over <code>device</code>. Non-ZFS volumes only mount the first one.</td></tr>
+      <tr><td><code>filesystem</code></td><td class="type">string</td><td><code>ext4</code></td><td>Written to fstab as-is (<code>ext4</code>, <code>xfs</code>, …). <code>zfs</code> works differently: see <a href="#cfg-zfs">ZFS</a>. The filesystem must already exist on the device.</td></tr>
+      <tr><td><code>encrypted</code></td><td class="type">boolean</td><td><code>false</code></td><td>Opens each device as a LUKS container named after the volume (<code>&lt;name&gt;</code>, <code>&lt;name&gt;_1</code>, …) and uses <code>/dev/mapper/&lt;name&gt;</code>.</td></tr>
+      <tr><td><code>encryption_key</code></td><td class="type">string</td><td>—</td><td>LUKS passphrase.</td></tr>
+      <tr><td><code>folders</code></td><td class="type">string[]</td><td>—</td><td>Subfolders created inside the mountpoint.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="example">
+    <div class="tabs" role="tablist"><button role="tab" aria-selected="true">machines.yaml</button><button role="tab" aria-selected="false">compiled</button><span class="spacer"></span></div>
+    <div class="pane active" data-lang="yaml">machines:
+  ext4.example.com:
+    mounts:
+      data:
+        device: /dev/sdb
+        encrypted: true
+        encryption_key: correct-horse-battery-staple
+        folders: [postgres, uploads]</div>
+    <div class="pane" data-lang="bash"># BEGIN: volumes_data
+ensure_installed cryptsetup
+if cryptsetup status data | grep -q 'inactive'; then
+  if cryptsetup isLuks /dev/sdb; then
+    echo 'correct-horse-battery-staple' | cryptsetup --key-file - open /dev/sdb data
+  else
+    halt_intervention_required &lt;&lt;"LUKS_INIT"
+Device /dev/sdb does not appear to be a LUKS device.
+If you are initializing a new device, please format the LUKS container using the following command:
+  echo 'correct-horse-battery-staple' | cryptsetup --key-file - luksFormat /dev/sdb
+WARNING: All data will be lost!
+LUKS_INIT
+  fi
+fi
+
+mkdir -p /mnt/external_storage/data
+
+if ! grep -q '/mnt/external_storage/data' /etc/fstab; then
+  echo "/dev/mapper/data   /mnt/external_storage/data ext4 defaults,noauto 0 0" &gt;&gt; /etc/fstab
+fi
+
+mountpoint -q /mnt/external_storage/data || mount /mnt/external_storage/data
+mkdir -p /mnt/external_storage/data/postgres
+mkdir -p /mnt/external_storage/data/uploads
+# END: volumes_data</div>
+  </div>
+  <div class="note warn"><strong>Setting up a new encrypted disk</strong>honeyconf.sh never formats a disk. On a blank device, the deploy <a href="#exit-codes">stops with code 101</a> and prints the <code>cryptsetup luksFormat</code> command to run. Run it, create the filesystem on <code>/dev/mapper/&lt;name&gt;</code> (for example <code>mkfs.ext4 /dev/mapper/data</code>), then deploy again.</div>
+
+  <!-- ---------------- mounts zfs ---------------- -->
+  <h3 id="cfg-zfs">mounts — ZFS</h3>
+  <p>With <code>filesystem: zfs</code>, the volume name is the pool name. honeyconf.sh installs <code>zfsutils-linux</code> and <code>zfs-auto-snapshot</code>, imports the pool, then creates and mounts each dataset. Combine with <code>encrypted: true</code> to build the pool on LUKS devices.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Key</th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>devices</code> / <code>device</code></td><td class="type">string[] / string</td><td>Pool members. Used in the suggested <code>zpool create</code> command.</td></tr>
+      <tr><td><code>datasets[].name</code><span class="req">req</span></td><td class="type">string</td><td>Dataset name, created as <code>&lt;pool&gt;/&lt;name&gt;</code>.</td></tr>
+      <tr><td><code>datasets[].mountpoint</code><span class="req">req</span></td><td class="type">string</td><td>Updated whenever it differs from the configuration.</td></tr>
+      <tr><td><code>datasets[].compression</code></td><td class="type">string</td><td>For example <code>lz4</code>, <code>zstd</code> or <code>off</code>. Updated whenever it differs.</td></tr>
+      <tr><td><code>datasets[].encryption</code></td><td class="type">string</td><td>Native ZFS encryption, for example <code>on</code> or <code>aes-256-gcm</code>. Can only be set when the dataset is created.</td></tr>
+      <tr><td><code>datasets[].encryption_passphrase</code></td><td class="type">string</td><td>Used to create the dataset and to load its key on every deploy.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="example">
+    <div class="tabs" role="tablist"><button role="tab" aria-selected="true">machines.yaml</button><button role="tab" aria-selected="false">compiled</button><span class="spacer"></span></div>
+    <div class="pane active" data-lang="yaml">machines:
+  zfs.example.com:
+    mounts:
+      tank:
+        filesystem: zfs
+        devices: [/dev/sdb, /dev/sdc]
+        datasets:
+          - name: backups
+            mountpoint: /srv/backups
+            compression: zstd
+          - name: secrets
+            mountpoint: /srv/secrets
+            encryption: aes-256-gcm
+            encryption_passphrase: another-long-passphrase</div>
+    <div class="pane" data-lang="bash"># BEGIN: volumes_tank
+ensure_installed zfsutils-linux zfs-auto-snapshot
+if ! zpool status tank; then
+  if ! zpool import tank; then
+    halt_intervention_required &lt;&lt;"ZPOOL_INIT"
+tank does not appear to be a zpool.
+If you are initializing a new device, please create a zpool using the following command:
+  zpool create -O compression=lz4 -O atime=off tank /dev/sdb /dev/sdc
+ZPOOL_INIT
+  fi
+fi
+zfs create -p tank/backups
+if [ "$(zfs get mountpoint -H -o value tank/backups)" != "/srv/backups" ]; then
+  zfs set mountpoint=/srv/backups tank/backups
+fi
+if [ "$(zfs get compression -H -o value tank/backups)" != "zstd" ]; then
+  zfs set compression=zstd tank/backups
+fi
+if [ "$(zfs get mounted -H -o value tank/backups)" != "yes" ]; then
+  zfs mount tank/backups
+fi
+echo -n 'another-long-passphrase' | zfs create -p -o encryption=aes-256-gcm -o keylocation=prompt -o keyformat=passphrase tank/secrets
+if [ "$(zfs get mountpoint -H -o value tank/secrets)" != "/srv/secrets" ]; then
+  zfs set mountpoint=/srv/secrets tank/secrets
+fi
+if [ "$(zfs get keystatus -H -o value tank/secrets)" != "available" ]; then
+  echo -n 'another-long-passphrase' | zfs load-key tank/secrets
+fi
+if [ "$(zfs get mounted -H -o value tank/secrets)" != "yes" ]; then
+  zfs mount tank/secrets
+fi
+# END: volumes_tank</div>
+  </div>
+  <div class="note"><strong>Pool layout is up to you</strong>The suggested <code>zpool create</code> command stripes all devices. If you want a mirror or raidz, create the pool by hand (for example <code>zpool create … tank mirror /dev/sdb /dev/sdc</code>) and deploy again. Since the pool then exists, it is imported and used as-is.</div>
+
+  <!-- ---------------- network ---------------- -->
+  <h3 id="cfg-network">network</h3>
+  <p>Up to four networks are supported, each with a fixed name and config file. Other names are ignored.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Network</th><th>File key</th><th>Typical use</th></tr></thead>
+    <tbody>
+      <tr><td><code>public</code></td><td><code>99-wan-network</code></td><td>Internet-facing interface. Managing it also turns off cloud-init network config.</td></tr>
+      <tr><td><code>internal</code></td><td><code>99-internal-network</code></td><td>Private LAN or VPC.</td></tr>
+      <tr><td><code>dmz</code></td><td><code>99-dmz-network</code></td><td>Semi-trusted segment.</td></tr>
+      <tr><td><code>dialin</code></td><td><code>99-dialin-network</code></td><td>Out-of-band or remote-access link.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>managed</code></td><td class="type">boolean</td><td><code>false</code></td><td>Only networks with <code>managed: true</code> are written. Unmanaged entries are documentation only.</td></tr>
+      <tr><td><code>interface</code></td><td class="type">string</td><td>—</td><td>For example <code>eth0</code> or <code>ens18</code>.</td></tr>
+      <tr><td><code>mode</code></td><td class="type">enum</td><td><code>static</code></td><td><code>static</code>, <code>dhcp</code> or <code>manual</code>.</td></tr>
+      <tr><td><code>state</code></td><td class="type">enum</td><td><code>up</code></td><td><code>down</code> sets the mode to <code>manual</code>, leaves out <code>auto</code>, and stops <code>ifup@&lt;interface&gt;</code>.</td></tr>
+      <tr><td><code>ip</code></td><td class="type">string</td><td>—</td><td>CIDR address such as <code>10.0.0.10/24</code>. Used in <code>static</code> mode.</td></tr>
+      <tr><td><code>gateway</code></td><td class="type">string</td><td>—</td><td>Default gateway. Set it on one network only.</td></tr>
+      <tr><td><code>routes[]</code></td><td class="type">object[]</td><td>—</td><td>Static routes, each with <code>net</code> (CIDR) and <code>gateway</code>.</td></tr>
+      <tr><td><code>nameservers</code></td><td class="type">string[]</td><td>—</td><td>DNS servers. They are also written to <code>/etc/dhcp/dhclient.conf</code> as <code>supersede domain-name-servers</code>.</td></tr>
+    </tbody>
+  </table></div>
+  <p>Each managed network is written in <strong>both</strong> formats, but each one is only applied if its directory exists. Netplan machines get <code>/etc/netplan/&lt;key&gt;.yaml</code> and ifupdown machines get <code>/etc/network/interfaces.d/&lt;key&gt;.cfg</code>. The same configuration therefore works on old and new Ubuntu releases. The network is then reloaded with <code>systemctl restart networking</code> or <code>netplan apply</code>.</p>
+  <div class="example">
+    <div class="tabs" role="tablist"><button role="tab" aria-selected="true">machines.yaml</button><button role="tab" aria-selected="false">compiled</button><span class="spacer"></span></div>
+    <div class="pane active" data-lang="yaml">machines:
+  net.example.com:
+    network:
+      public:
+        managed: true
+        interface: eth0
+        ip: 203.0.113.10/24
+        gateway: 203.0.113.1
+        nameservers: [1.1.1.1, 9.9.9.9]
+      internal:
+        managed: true
+        interface: eth1
+        ip: 10.0.0.10/24
+        routes:
+          - net: 10.10.0.0/16
+            gateway: 10.0.0.1
+      dmz:
+        managed: true
+        interface: eth2
+        mode: dhcp
+      dialin:
+        managed: true
+        interface: eth3
+        state: down</div>
+    <div class="pane" data-lang="bash"># BEGIN: LEGACY_99-dmz-network
+if test -d /etc/network/interfaces.d; then
+  cat &lt;&lt;EOF &gt; /etc/network/interfaces.d/99-dmz-network.cfg
+auto eth2
+iface eth2 inet dhcp
+EOF
+fi
+# END: LEGACY_99-dmz-network
+# BEGIN: NETPLAN_99-dmz-network
+if test -d /etc/netplan; then
+  rm -f /etc/netplan/50-cloud-init.yaml
+  cat &lt;&lt;EOF &gt; /etc/netplan/99-dmz-network.yaml
+network:
+  version: 2
+  ethernets:
+    eth2:
+      dhcp4: true
+EOF
+fi
+# END: NETPLAN_99-dmz-network
+# BEGIN: LEGACY_99-internal-network
+if test -d /etc/network/interfaces.d; then
+  cat &lt;&lt;EOF &gt; /etc/network/interfaces.d/99-internal-network.cfg
+auto eth1
+iface eth1 inet static
+    address 10.0.0.10/24
+    post-up ip route add 10.10.0.0/16 via 10.0.0.1 dev eth1
+    pre-down ip route del 10.10.0.0/16
+EOF
+fi
+# END: LEGACY_99-internal-network
+# BEGIN: NETPLAN_99-internal-network
+if test -d /etc/netplan; then
+  rm -f /etc/netplan/50-cloud-init.yaml
+  cat &lt;&lt;EOF &gt; /etc/netplan/99-internal-network.yaml
+network:
+  version: 2
+  ethernets:
+    eth1:
+      addresses:
+        - 10.0.0.10/24
+      routes:
+        - to: 10.10.0.0/16
+          via: 10.0.0.1
+EOF
+fi
+# END: NETPLAN_99-internal-network
+# BEGIN: internal_resolvers
+sed -i '/^supersede domain-name-servers/d' /etc/dhcp/dhclient.conf
+echo 'supersede domain-name-servers 1.1.1.1, 9.9.9.9;' &gt;&gt; /etc/dhcp/dhclient.conf
+# END: internal_resolvers
+# BEGIN: LEGACY_99-wan-network
+if test -d /etc/network/interfaces.d; then
+  cat &lt;&lt;EOF &gt; /etc/network/interfaces.d/99-wan-network.cfg
+auto eth0
+iface eth0 inet static
+    address 203.0.113.10/24
+    gateway 203.0.113.1
+    dns-nameserver 1.1.1.1
+    dns-nameserver 9.9.9.9
+EOF
+fi
+# END: LEGACY_99-wan-network
+# BEGIN: NETPLAN_99-wan-network
+if test -d /etc/netplan; then
+  rm -f /etc/netplan/50-cloud-init.yaml
+  cat &lt;&lt;EOF &gt; /etc/netplan/99-wan-network.yaml
+network:
+  version: 2
+  ethernets:
+    eth0:
+      addresses:
+        - 203.0.113.10/24
+      gateway4: 203.0.113.1
+      nameservers:
+          addresses:
+            - 1.1.1.1
+            - 9.9.9.9
+EOF
+fi
+# END: NETPLAN_99-wan-network
+# BEGIN: LEGACY_99-dialin-network
+if test -d /etc/network/interfaces.d; then
+  cat &lt;&lt;EOF &gt; /etc/network/interfaces.d/99-dialin-network.cfg
+
+iface eth3 inet manual
+EOF
+fi
+# END: LEGACY_99-dialin-network
+# BEGIN: NETPLAN_99-dialin-network
+if test -d /etc/netplan; then
+  rm -f /etc/netplan/50-cloud-init.yaml
+  cat &lt;&lt;EOF &gt; /etc/netplan/99-dialin-network.yaml
+network:
+  version: 2
+  ethernets:
+    eth3:
+EOF
+fi
+# END: NETPLAN_99-dialin-network
+# BEGIN: networking_disable_cloud
+echo 'network: {config: disabled}' &gt; /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+rm -f /etc/network/interfaces.d/50-cloud-init.cfg
+# END: networking_disable_cloud
+# BEGIN: NETWORKING_RELOAD
+if systemctl is-enabled ifup@eth3.service &gt;/dev/null 2&gt;&amp;1; then
+  systemctl stop ifup@eth3.service
+fi
+if systemctl is-enabled networking.service &gt;/dev/null 2&gt;&amp;1; then
+  systemctl restart networking.service
+elif [ -d /etc/netplan ]; then
+  netplan apply
+else
+  echo "Unsupported network manager." &gt; /dev/stderr
+  exit 1
+fi
+# END: NETWORKING_RELOAD</div>
+  </div>
+  <div class="note danger"><strong>Test network changes first</strong>A wrong address or gateway can cut off your SSH session halfway through a deploy. Compile and read the output before deploying, and make sure you have console access, especially for the <code>public</code> interface.</div>
+  <div class="note"><strong>cloud-init</strong>If <code>public.managed</code> is <code>true</code>, honeyconf.sh writes <code>99-disable-network-config.cfg</code> and deletes cloud-init's own network files so they don't conflict. If not, it removes that file and cloud-init manages the network again.</div>
+
+  <!-- ---------------- monitoring ---------------- -->
+  <h3 id="cfg-monitoring">monitoring</h3>
+  <p>Installs Prometheus <code>node_exporter</code> with mutual TLS: the exporter only answers scrapers that present a client certificate signed by <code>tls_ca</code>.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Key</th><th>Type</th><th>Default</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr><td><code>type</code><span class="req">req</span></td><td class="type">enum</td><td>—</td><td><code>node_exporter</code>. Any other value turns monitoring off.</td></tr>
+      <tr><td><code>source</code></td><td class="type">enum</td><td><code>package</code></td><td><code>package</code> uses the distribution's <code>prometheus-node-exporter</code>. <code>upstream-1.2.2</code> also swaps in the official 1.2.2 binary (checked by SHA-256), for releases like Ubuntu 20.04 whose package can't do TLS client authentication.</td></tr>
+      <tr><td><code>tls_ca</code></td><td class="type">PEM</td><td>—</td><td>CA that signs the Prometheus client certificate.</td></tr>
+      <tr><td><code>tls_cert</code></td><td class="type">PEM</td><td>—</td><td>The exporter's server certificate.</td></tr>
+      <tr><td><code>tls_key</code></td><td class="type">PEM</td><td>—</td><td>The exporter's private key.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="example">
+    <div class="tabs" role="tablist"><button role="tab" aria-selected="true">machines.yaml</button><button role="tab" aria-selected="false">compiled</button><span class="spacer"></span></div>
+    <div class="pane active" data-lang="yaml">machines:
+  mon.example.com:
+    monitoring:
+      type: node_exporter
+      source: upstream-1.2.2
+      tls_ca: |
+        -----BEGIN CERTIFICATE-----
+        ...CA...
+        -----END CERTIFICATE-----
+      tls_cert: |
+        -----BEGIN CERTIFICATE-----
+        ...host certificate...
+        -----END CERTIFICATE-----
+      tls_key: |
+        -----BEGIN PRIVATE KEY-----
+        ...host key...
+        -----END PRIVATE KEY-----</div>
+    <div class="pane" data-lang="bash"># BEGIN: monitoring
+ensure_installed prometheus-node-exporter
+
+cat &lt;&lt;EOF &gt; /etc/default/prometheus-node-exporter
+ARGS="--collector.textfile.directory=/var/lib/prometheus/node-exporter --web.config=/etc/prometheus-node-exporter/web-config.yml"
+EOF
+
+if ! test -d /etc/prometheus-node-exporter/; then
+  mkdir /etc/prometheus-node-exporter/
+  chown -R prometheus:prometheus /etc/prometheus-node-exporter
+fi
+
+cat &lt;&lt;EOF &gt; /etc/prometheus-node-exporter/web-config.yml
+tls_server_config:
+    cert_file: /etc/prometheus-node-exporter/cert.crt
+    key_file: /etc/prometheus-node-exporter/cert.key
+    client_auth_type: RequireAndVerifyClientCert
+    client_ca_file: /etc/prometheus-node-exporter/ca.crt
+EOF
+
+cat &lt;&lt;EOF &gt; /etc/prometheus-node-exporter/cert.crt
+-----BEGIN CERTIFICATE-----
+...host certificate...
+-----END CERTIFICATE-----
+EOF
+
+cat &lt;&lt;EOF &gt; /etc/prometheus-node-exporter/cert.key
+-----BEGIN PRIVATE KEY-----
+...host key...
+-----END PRIVATE KEY-----
+EOF
+
+cat &lt;&lt;EOF &gt; /etc/prometheus-node-exporter/ca.crt
+-----BEGIN CERTIFICATE-----
+...CA...
+-----END CERTIFICATE-----
+EOF
+# BEGIN: UPSTREAM-1.2.2
+if [ "$(sha256sum /usr/bin/prometheus-node-exporter | cut -f1 -d ' ')" != "ae6030f0bad626a1acc43e0698d227212bc5d71196fd0af79e24e662c0f1c561" ]; then
+  curl -L https://github.com/prometheus/node_exporter/releases/download/v1.2.2/node_exporter-1.2.2.linux-amd64.tar.gz | tar -xvz --strip 1 -C /usr/bin node_exporter-1.2.2.linux-amd64/node_exporter
+  mv /usr/bin/node_exporter /usr/bin/prometheus-node-exporter
+
+  systemctl restart prometheus-node-exporter
+fi
+# END: UPSTREAM-1.2.2
+# END: monitoring</div>
+  </div>
+  <p>The exporter also reads <code>*.prom</code> files from <code>/var/lib/prometheus/node-exporter</code>, so your own scripts can publish metrics there. A matching Prometheus scrape job:</p>
+  <div class="code" data-lang="yaml" data-label="prometheus.yml">scrape_configs:
+  - job_name: node
+    scheme: https
+    tls_config:
+      ca_file: /etc/prometheus/node-ca.crt
+      cert_file: /etc/prometheus/client.crt
+      key_file: /etc/prometheus/client.key
+    static_configs:
+      - targets: ['web1.example.com:9100']</div>
+
+  <!-- ---------------- roles ---------------- -->
+  <h3 id="cfg-roles">roles</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Role</th><th>Effect</th></tr></thead>
+    <tbody>
+      <tr><td><code>application_server</code></td><td>Installs <code>docker.io</code> and <code>docker-compose-v2</code> if <code>dockerd</code> is missing, and starts <code>docker.service</code>. For every volume in <code>mounts</code>, it adds a systemd drop-in that makes Docker require the mount and start after it. If a disk is missing, Docker then refuses to start, instead of starting containers that write into an empty mountpoint.</td></tr>
+      <tr><td><code>backup_server</code></td><td>Accepted as a label for your own tooling. It has no effect yet.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="example">
+    <div class="tabs" role="tablist"><button role="tab" aria-selected="true">machines.yaml</button><button role="tab" aria-selected="false">compiled</button><span class="spacer"></span></div>
+    <div class="pane active" data-lang="yaml">machines:
+  app.example.com:
+    roles: [application_server]
+    mounts:
+      data:
+        device: /dev/sdb</div>
+    <div class="pane" data-lang="bash"># BEGIN: volumes_data
+mkdir -p /mnt/external_storage/data
+
+if ! grep -q '/mnt/external_storage/data' /etc/fstab; then
+  echo "/dev/sdb   /mnt/external_storage/data ext4 defaults,noauto 0 0" &gt;&gt; /etc/fstab
+fi
+
+mountpoint -q /mnt/external_storage/data || mount /mnt/external_storage/data
+# END: volumes_data
+# BEGIN: ensure_docker_running
+if [ -f /lib/systemd/system/docker.service ]; then
+  systemctl start docker.service
+fi
+# END: ensure_docker_running
+# BEGIN: application_server_role
+if ! test -e /usr/bin/dockerd; then
+  ensure_installed docker.io docker-compose-v2
+fi
+mkdir -p /etc/systemd/system/docker.service.d/
+if ! test -f /etc/systemd/system/docker.service.d/$(systemd-escape -p --suffix=mount "/mnt/external_storage/data").conf; then
+  cat &lt;&lt;DROP_IN &gt; /etc/systemd/system/docker.service.d/$(systemd-escape -p --suffix=mount "/mnt/external_storage/data").conf
+[Unit]
+Requisite=$(systemd-escape -p --suffix=mount "/mnt/external_storage/data")
+After=$(systemd-escape -p --suffix=mount "/mnt/external_storage/data")
+DROP_IN
+  systemctl daemon-reload
+fi
+
+# END: application_server_role</div>
+  </div>
+  <p>ZFS datasets get the same protection, using the dataset's mountpoint from <code>zfs get mountpoint</code>. Use <code>commands/check_mounts.sh</code> to check that running containers see the right volumes.</p>
+</section>
+
+<!-- ================================================================ -->
+<section id="recipes" data-title="Recipes">
+  <h2>Recipes<a class="anchor" href="#recipes">#</a></h2>
+  <p>Complete, realistic machine definitions to copy and adapt.</p>
+
+  <h3 id="recipe-docker">Docker host with encrypted data and a CI deploy user</h3>
+  <div class="code" data-lang="yaml" data-label="machines.yaml">x-admins: &amp;admins
+  authorized_keys_user: localadmin
+  authorized_keys: |
+    ssh-ed25519 AAAA… alice@laptop
+    ssh-ed25519 AAAA… bob@laptop
+
+machines:
+  app1.prod.example.com:
+    credentials:
+      username: localadmin
+    roles: [application_server]
+    swap:
+      size_mb: 4096
+    system:
+      packages: [htop, jq, unattended-upgrades]
+    access_control:
+      &lt;&lt;: *admins
+      service_accounts:
+        - username: deploy
+          home: /srv/deploy
+          groups: [docker]
+          authorized_keys: |
+            ssh-ed25519 AAAA… gitlab-runner
+    mounts:
+      data:
+        device: /dev/disk/by-id/scsi-0HC_Volume_1234
+        encrypted: true
+        encryption_key: change-me-to-a-long-random-string
+        folders: [postgres, uploads, backups]</div>
+  <p>Mount volumes into containers from <code>/mnt/external_storage/data/…</code>. Docker does not start until the encrypted volume is open and mounted.</p>
+
+  <h3 id="recipe-backup">ZFS backup server</h3>
+  <div class="code" data-lang="yaml" data-label="machines.yaml">machines:
+  backup1.example.com:
+    credentials:
+      username: localadmin
+    roles: [backup_server]
+    access_control:
+      authorized_keys_user: localadmin
+      authorized_keys: |
+        ssh-ed25519 AAAA… alice@laptop
+      service_accounts:
+        - username: borg
+          home: /srv/borg/home
+          authorized_keys: |
+            command="borg serve --restrict-to-path /srv/borg/repos",restrict ssh-ed25519 AAAA… app1
+    mounts:
+      tank:
+        filesystem: zfs
+        encrypted: true                     # LUKS under every pool member
+        encryption_key: change-me
+        devices:
+          - /dev/disk/by-id/ata-DISK_A
+          - /dev/disk/by-id/ata-DISK_B
+        datasets:
+          - name: borg
+            mountpoint: /srv/borg
+            compression: zstd</div>
+
+  <h3 id="recipe-multihomed">Bare-metal host with several networks</h3>
+  <div class="code" data-lang="yaml" data-label="machines.yaml">machines:
+  edge1.example.com:
+    credentials:
+      username: localadmin
+    access_control:
+      authorized_keys_user: localadmin
+      authorized_keys: |
+        ssh-ed25519 AAAA… alice@laptop
+    network:
+      public:
+        managed: true
+        interface: enp1s0
+        ip: 198.51.100.20/27
+        gateway: 198.51.100.1
+        nameservers: [1.1.1.1, 9.9.9.9]
+      internal:
+        managed: true
+        interface: enp2s0
+        ip: 10.20.0.20/24
+        routes:
+          - net: 10.0.0.0/8
+            gateway: 10.20.0.1
+      dialin:
+        managed: true
+        interface: enp3s0
+        state: down                         # cabled, but kept down</div>
+
+  <h3 id="recipe-minimal">Inventory-only and minimal machines</h3>
+  <div class="code" data-lang="yaml" data-label="machines.yaml">machines:
+  # Never deployed, still listed for documentation
+  printer.office.example.com:
+    managed: false
+
+  # Only manage swap and packages; leave everything else as it is
+  legacy-app.example.com:
+    credentials:
+      username: ubuntu
+    options:
+      manage_hostname: false
+      manage_fail2ban: false
+      manage_updatedb: false
+      disable_ssh_password_authentication: false
+    swap:
+      size_mb: 1024
+    system:
+      packages: [ncdu]</div>
+</section>
+
+<!-- ================================================================ -->
+<section id="exit-codes" data-title="Exit codes & intervention">
+  <h2>Exit codes &amp; human intervention<a class="anchor" href="#exit-codes">#</a></h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td><code>0</code></td><td>No error.</td></tr>
+      <tr><td><code>1</code></td><td>Unspecified error: a command failed (<code>set -e</code>), a variable was unset, the YAML was invalid, the machine was not found, and so on.</td></tr>
+      <tr><td><code>101</code></td><td>Human intervention required. The process stopped on purpose because continuing could destroy data.</td></tr>
+    </tbody>
+  </table></div>
+  <p>honeyconf.sh never runs destructive commands on its own. When it reaches a disk that isn't set up yet, it stops with code 101 and prints the exact command for you to review and run:</p>
+  <div class="code" data-lang="text" data-label="LUKS device not formatted">************************************************************
+Device /dev/sdb does not appear to be a LUKS device.
+If you are initializing a new device, please format the LUKS container using the following command:
+  echo 'correct-horse-battery-staple' | cryptsetup --key-file - luksFormat /dev/sdb
+WARNING: All data will be lost!
+************************************************************
+PROCESS HALTED. Human intervention required</div>
+  <div class="code" data-lang="text" data-label="zpool missing">************************************************************
+tank does not appear to be a zpool.
+If you are initializing a new device, please create a zpool using the following command:
+  zpool create -O compression=lz4 -O atime=off tank /dev/sdb /dev/sdc
+************************************************************
+PROCESS HALTED. Human intervention required</div>
+  <p>After running the command, deploy again. Everything before the stopping point was already applied and is checked again quickly.</p>
+</section>
+
+<!-- ================================================================ -->
+<section id="security" data-title="Security notes">
+  <h2>Security notes<a class="anchor" href="#security">#</a></h2>
+  <ul>
+    <li><strong>Secrets are plain text.</strong> <code>machines.yaml</code> holds LUKS keys, ZFS passphrases and TLS private keys. Keep it in a private repository, encrypted with a tool such as <a href="https://github.com/getsops/sops">sops</a>, <code>git-crypt</code> or <code>ansible-vault</code>, and decrypt it only to compile.</li>
+    <li><strong><code>deploy.sh</code> traces every command.</strong> It runs <code>bash -vx</code>, so secrets that appear in the script, such as <code>cryptsetup</code> passphrases and file contents, are printed to your terminal. Don't save deploy logs in shared CI output.</li>
+    <li><strong>Secrets show up briefly in the process list.</strong> Passphrases are piped with <code>echo</code>, so other users on the target can see them in <code>ps</code> while the command runs.</li>
+    <li><strong>Managed files are overwritten.</strong> <code>authorized_keys</code>, sudoers drop-ins and <code>system.files</code> are replaced on every deploy, so local changes are lost.</li>
+    <li><strong>The SSH user is effectively root.</strong> Protect that account's key as if it were a root key.</li>
+  </ul>
+</section>
+
+<!-- ================================================================ -->
+<section id="schema" data-title="JSON Schema">
+  <h2>JSON Schema<a class="anchor" href="#schema">#</a></h2>
+  <p>The repository includes <a href="https://github.com/bee-software/honeyconf.sh/blob/master/schema.json"><code>schema.json</code></a> (JSON Schema 2020-12), which describes everything on this page. Use it for autocompletion and validation in your editor, or in CI.</p>
+  <h4>VS Code / JetBrains (YAML language server)</h4>
+  <p>Add a modeline at the top of <code>machines.yaml</code>:</p>
+  <div class="code" data-lang="yaml"># yaml-language-server: $schema=./honeyconf.sh/schema.json
+machines:
+  web1.example.com: {}</div>
+  <h4>Validate in CI</h4>
+  <div class="code" data-lang="shell"># with check-jsonschema (pip install check-jsonschema)
+check-jsonschema --schemafile honeyconf.sh/schema.json machines.yaml
+
+# then make sure every machine actually compiles
+for m in $(./honeyconf.sh/list_machines.sh machines.yaml .); do
+  ./honeyconf.sh/compile.sh machines.yaml "$m" &gt; /dev/null || echo "FAILED: $m"
+done</div>
+  <div class="note"><strong>The code is the reference</strong>If the schema and the emitters ever disagree, the emitters are right. Please report the difference as a bug in the schema.</div>
+</section>
+
+<!-- ================================================================ -->
+<section id="contributing" data-title="Testing & contributing">
+  <h2>Testing &amp; contributing<a class="anchor" href="#contributing">#</a></h2>
+  <h3>Running the tests</h3>
+  <div class="code" data-lang="shell"># In Docker (same as CI): bats, yq 4 and jq are preinstalled
+make test
+
+# Natively, with bats, yq and jq installed
+make test_native</div>
+  <p>Each emitter has a <code>test/&lt;emitter&gt;.bats</code> file that compiles a small <code>machines.yaml</code> and checks the output. <code>test/integration/minimalist</code> is a snapshot test of a whole compiled script. If you change any emitter output on purpose, update <code>expected.sh</code> in the same change.</p>
+
+  <h3>Writing an emitter</h3>
+  <ol>
+    <li>Create <code>emitters/my_feature.sh</code>. Source <code>../config.sh</code>, read your keys, and <code>exit 0</code> early when the feature isn't configured.</li>
+    <li>Print idempotent bash wrapped in <code># BEGIN: my_feature</code> / <code># END: my_feature</code>.</li>
+    <li>Call it from <code>compile.sh</code> at the right place in the order.</li>
+    <li>Add your keys to <code>schema.json</code>, a <code>test/my_feature.bats</code> file, and a section on this page.</li>
+  </ol>
+  <div class="code" data-lang="bash" data-label="emitters/timezone.sh — example">#!/bin/bash -eu
+pushd "$(dirname $0)" &gt; /dev/null
+. ../config.sh
+popd &gt; /dev/null
+
+timezone="$(config "system.timezone" | value)"
+if [ -z "$timezone" ]; then
+  exit 0
+fi
+
+cat &lt;&lt;EOF
+# BEGIN: timezone
+if [ "\$(timedatectl show -p Timezone --value)" != "${timezone}" ]; then
+  timedatectl set-timezone ${timezone}
+fi
+# END: timezone
+EOF</div>
+  <h4>Configuration helpers (<code>config.sh</code>)</h4>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Helper</th><th>Use</th></tr></thead>
+    <tbody>
+      <tr><td><code>config "a.b"</code></td><td>JSON value at <code>.machines."$MACHINE_NAME".a.b</code>. Pipe it into one of the helpers below.</td></tr>
+      <tr><td><code>config_exists "a.b"</code></td><td>Exit status 0 if the key is set and not null/false.</td></tr>
+      <tr><td><code>| value</code></td><td>Raw string, or empty when null.</td></tr>
+      <tr><td><code>| default "x"</code></td><td>Raw string, or <code>x</code> when null.</td></tr>
+      <tr><td><code>| items</code></td><td>Array elements, one per line.</td></tr>
+      <tr><td><code>| keys</code></td><td>Object keys, in file order.</td></tr>
+      <tr><td><code>| count</code></td><td>Length of an array or object.</td></tr>
+      <tr><td><code>range N</code></td><td>Prints <code>[0]</code> … <code>[N-1]</code>, used as <code>config "list | .$i.field"</code>.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>
+  honeyconf.sh is maintained by <a href="https://github.com/bee-software">bee-software</a>.
+  Source, issues and license on <a href="https://github.com/bee-software/honeyconf.sh">GitHub</a>.
+  Every compiled example on this page was generated by running <code>compile.sh</code>.
+</footer>
+</main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- syntax highlighting ---------- */
+  var esc = function (s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
+  var span = function (cls, s) { return '<span class="tk-' + cls + '">' + esc(s) + "</span>"; };
+
+  var BASH = /((?:^|(?<=\s))#[^\n]*)|('[^'\n]*')|("(?:[^"\\\n]|\\.)*")|(\$\{?[A-Za-z_][A-Za-z0-9_]*\}?|\$\(|\$[0-9#?@*])|\b(if|then|else|elif|fi|for|in|do|done|while|case|esac|function|local|return|exit|export|set)\b|(<<-?\s*"?[A-Z_]+"?)/gm;
+  var YAML = /((?:^|(?<=\s))#[^\n]*)|^(\s*(?:-\s+)?)([A-Za-z0-9_."'<-][A-Za-z0-9_."' -]*?)(?=:(?:\s|$))|("[^"\n]*"|'[^'\n]*')|((?<=:\s+|-\s+)(?:true|false|null|-?\d+(?:\.\d+)?)(?=\s*(?:#|$)))|([&*][A-Za-z_][\w-]*)/gm;
+
+  function highlight(text, lang) {
+    if (lang === "text") return esc(text);
+    var re = (lang === "yaml") ? YAML : BASH;
+    var out = "", last = 0, m;
+    re.lastIndex = 0;
+    while ((m = re.exec(text)) !== null) {
+      if (m[0] === "") { re.lastIndex++; continue; }
+      out += esc(text.slice(last, m.index));
+      if (lang === "yaml") {
+        if (m[1]) out += span("c", m[1]);
+        else if (m[3] !== undefined) out += esc(m[2] || "") + span("k", m[3]);
+        else if (m[4]) out += span("s", m[4]);
+        else if (m[5]) out += span("n", m[5]);
+        else if (m[6]) out += span("v", m[6]);
+      } else {
+        if (m[1]) out += span(/^#\s*(BEGIN|END):/.test(m[1]) ? "m" : "c", m[1]);
+        else if (m[2]) out += span("s", m[2]);
+        else if (m[3]) out += span("s", m[3]);
+        else if (m[4]) out += span("v", m[4]);
+        else if (m[5]) out += span("w", m[5]);
+        else if (m[6]) out += span("w", m[6]);
+      }
+      last = re.lastIndex;
+    }
+    return out + esc(text.slice(last));
+  }
+
+  function copyButton(getText) {
+    var b = document.createElement("button");
+    b.className = "copy"; b.type = "button"; b.textContent = "Copy";
+    b.addEventListener("click", function () {
+      var done = function () { b.textContent = "Copied"; b.classList.add("done"); setTimeout(function () { b.textContent = "Copy"; b.classList.remove("done"); }, 1400); };
+      var t = getText();
+      if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(done, function () {});
+      else { var ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); done(); } catch (e) {} ta.remove(); }
+    });
+    return b;
+  }
+
+  function buildPre(text, lang) {
+    var pre = document.createElement("pre"), code = document.createElement("code");
+    code.innerHTML = highlight(text.replace(/^\n/, "").replace(/\s+$/, ""), lang);
+    pre.appendChild(code);
+    return pre;
+  }
+
+  // Plain code blocks: <div class="code" data-lang data-label>raw text</div>
+  document.querySelectorAll(".code").forEach(function (el) {
+    var text = el.textContent, lang = el.dataset.lang || "bash";
+    el.textContent = "";
+    var label = document.createElement("div");
+    label.className = "label";
+    var name = document.createElement("span");
+    name.textContent = el.dataset.label || ({ yaml: "yaml", shell: "shell", bash: "bash", text: "output" })[lang] || lang;
+    var pre = buildPre(text, lang);
+    label.appendChild(name);
+    label.appendChild(copyButton(function () { return pre.textContent; }));
+    el.appendChild(label);
+    el.appendChild(pre);
+  });
+
+  // Tabbed examples
+  document.querySelectorAll(".example").forEach(function (ex) {
+    var panes = ex.querySelectorAll(".pane"), tabs = ex.querySelectorAll(".tabs [role=tab]");
+    panes.forEach(function (p) {
+      var text = p.textContent; p.textContent = "";
+      p.appendChild(buildPre(text, p.dataset.lang || "bash"));
+    });
+    var active = function () { return ex.querySelector(".pane.active pre").textContent; };
+    ex.querySelector(".tabs").appendChild(copyButton(active));
+    tabs.forEach(function (t, i) {
+      t.addEventListener("click", function () {
+        tabs.forEach(function (x, j) { x.setAttribute("aria-selected", i === j ? "true" : "false"); });
+        panes.forEach(function (p, j) { p.classList.toggle("active", i === j); });
+      });
+    });
+  });
+
+  /* ---------- theme ---------- */
+  var root = document.documentElement, KEY = "honeyconf-theme";
+  try { var saved = localStorage.getItem(KEY); if (saved) root.dataset.theme = saved; } catch (e) {}
+  document.getElementById("theme-btn").addEventListener("click", function () {
+    var dark = root.dataset.theme ? root.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    root.dataset.theme = dark ? "light" : "dark";
+    try { localStorage.setItem(KEY, root.dataset.theme); } catch (e) {}
+  });
+
+  /* ---------- mobile nav ---------- */
+  var body = document.body, menuBtn = document.getElementById("menu-btn");
+  var setNav = function (open) { body.classList.toggle("nav-open", open); menuBtn.setAttribute("aria-expanded", open ? "true" : "false"); };
+  menuBtn.addEventListener("click", function () { setNav(!body.classList.contains("nav-open")); });
+  document.getElementById("scrim").addEventListener("click", function () { setNav(false); });
+  document.querySelectorAll(".toc a").forEach(function (a) { a.addEventListener("click", function () { setNav(false); }); });
+
+  /* ---------- TOC filter ---------- */
+  var filter = document.getElementById("toc-filter");
+  var items = Array.prototype.slice.call(document.querySelectorAll("#toc li"));
+  filter.addEventListener("input", function () {
+    var q = filter.value.trim().toLowerCase(), any = false;
+    items.forEach(function (li) {
+      if (li.id === "toc-empty") return;
+      if (li.classList.contains("group")) { li.hidden = !!q; return; }
+      var a = li.querySelector("a"), target = a && document.querySelector(a.getAttribute("href"));
+      var hay = (a.textContent + " " + (target ? target.textContent.slice(0, 4000) : "")).toLowerCase();
+      li.hidden = !!q && hay.indexOf(q) === -1;
+      if (!li.hidden) any = true;
+    });
+    document.getElementById("toc-empty").hidden = !q || any;
+  });
+  filter.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { var first = items.find(function (li) { return !li.hidden && li.querySelector("a"); }); if (first) first.querySelector("a").click(); }
+    if (e.key === "Escape") { filter.value = ""; filter.dispatchEvent(new Event("input")); filter.blur(); }
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "/" && document.activeElement !== filter && !/input|textarea/i.test(document.activeElement.tagName)) {
+      e.preventDefault(); if (window.innerWidth <= 900) setNav(true); filter.focus();
+    }
+  });
+
+  /* ---------- scroll spy ---------- */
+  var links = Array.prototype.slice.call(document.querySelectorAll(".toc a"));
+  var targets = links.map(function (a) { return document.querySelector(a.getAttribute("href")); });
+  var spy = function () {
+    var y = window.scrollY + 90, idx = 0;
+    targets.forEach(function (t, i) { if (t && t.getBoundingClientRect().top + window.scrollY <= y) idx = i; });
+    if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 4) idx = targets.length - 1;
+    links.forEach(function (a, i) { a.classList.toggle("active", i === idx); });
+    var act = links[idx];
+    if (act && body.classList.contains("nav-open") === false) {
+      var sb = document.getElementById("sidebar"), r = act.getBoundingClientRect(), sr = sb.getBoundingClientRect();
+      if (r.top < sr.top + 60 || r.bottom > sr.bottom - 20) sb.scrollTop += r.top - sr.top - sr.height / 3;
+    }
+  };
+  var ticking = false;
+  window.addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(function () { spy(); ticking = false; }); } }, { passive: true });
+  spy();
+})();
+</script>
+</body>
+</html>
