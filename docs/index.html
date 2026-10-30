@@ -279,6 +279,8 @@ footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--border
     <li><a href="#overview">Overview</a></li>
     <li><a href="#how-it-works">How it works</a></li>
     <li><a href="#installation">Installation</a></li>
+    <li><a class="sub" href="#install-vendored">Vendoring with make</a></li>
+    <li><a class="sub" href="#install-clone">Cloning the repository</a></li>
     <li><a href="#quick-start">Quick start</a></li>
     <li class="group">Using it</li>
     <li><a href="#cli">Command reference</a></li>
@@ -409,9 +411,54 @@ halt_intervention_required() {
 <!-- ================================================================ -->
 <section id="installation" data-title="Installation">
   <h2>Installation<a class="anchor" href="#installation">#</a></h2>
-  <p>There is nothing to build. Clone the repository and make sure the compile-time tools are on your <code>PATH</code>.</p>
+  <p>There is nothing to build or install system-wide. The recommended setup is to keep your <code>machines.yaml</code> in its own Git repository and have a <code>Makefile</code> download a pinned honeyconf.sh release into <code>.vendor/</code>. Every clone of your infrastructure repository then uses the same version, and upgrading is a one-line change you can review.</p>
+
+  <h3 id="install-vendored">Recommended: vendor a release with make</h3>
+  <p>A typical infrastructure repository:</p>
+  <div class="code" data-lang="text" data-label="layout">infrastructure/
+├── Makefile
+├── .gitignore
+├── machines.yaml
+└── .vendor/                    # created by make, not committed
+    ├── honeyconf-3.1.0.sh/     # extracted release
+    └── honeyconf.sh -&gt; honeyconf-3.1.0.sh</div>
+  <p>The <code>Makefile</code> downloads the tagged release, extracts it into a versioned folder, and points a stable <code>.vendor/honeyconf.sh</code> symlink at it:</p>
+  <div class="code" data-lang="makefile" data-label="Makefile">.PHONY: clean
+
+all: .vendor/honeyconf.sh
+
+clean:
+	rm -rf .vendor
+
+.vendor:
+	mkdir -p .vendor
+
+.vendor/honeyconf-3.1.0.sh: | .vendor
+	mkdir -p $@
+	wget https://github.com/bee-software/honeyconf.sh/archive/refs/tags/v3.1.0.tar.gz -O $@/honeyconf.tar.gz
+	tar -xvzf $@/honeyconf.tar.gz -C $@ --strip-components=1
+
+.vendor/honeyconf.sh: .vendor/honeyconf-3.1.0.sh
+	ln -sf honeyconf-3.1.0.sh $@</div>
+  <p>The <code>|</code> makes <code>.vendor</code> an order-only prerequisite: it must exist, but its timestamp is ignored. Without it, creating the symlink updates the folder's timestamp and every <code>make</code> downloads the release again.</p>
+  <div class="note warn"><strong>Recipes must be indented with tabs</strong><code>make</code> rejects recipe lines indented with spaces (<code>missing separator</code>). The copy button keeps the tabs, but some editors turn them into spaces when you paste.</div>
+  <div class="code" data-lang="text" data-label=".gitignore">.vendor/</div>
+  <p>Fetch honeyconf.sh, then call the scripts through the symlink:</p>
+  <div class="code" data-lang="shell">make
+.vendor/honeyconf.sh/compile.sh machines.yaml web1.example.com
+.vendor/honeyconf.sh/deploy.sh machines.yaml '^web1\.example\.com$'</div>
+  <p>The rest of this page uses these <code>.vendor/honeyconf.sh/…</code> paths. Running <code>make</code> again does nothing once the release is downloaded, so you can make it the first step of any CI job or deploy script.</p>
+
+  <h4>Upgrading</h4>
+  <p>Replace every <code>3.1.0</code> in the <code>Makefile</code> with the new version (see the <a href="https://github.com/bee-software/honeyconf.sh/tags">list of releases</a>), then rebuild from scratch:</p>
+  <div class="code" data-lang="shell">make clean &amp;&amp; make</div>
+  <div class="note"><strong>Why <code>make clean</code> first?</strong>If the old <code>.vendor/honeyconf.sh</code> symlink is still there, <code>ln -sf</code> follows it and creates the new link <em>inside</em> the old release folder instead of replacing it. Starting from a clean <code>.vendor</code> avoids this.</div>
+  <p>Before deploying a new version, compile each machine with the old and new versions and compare the scripts, so you see exactly what the upgrade will change.</p>
+
+  <h3 id="install-clone">Alternative: clone the repository</h3>
+  <p>To try honeyconf.sh or work on it, clone it and run the scripts directly:</p>
   <div class="code" data-lang="shell">git clone https://github.com/bee-software/honeyconf.sh.git
-cd honeyconf.sh</div>
+honeyconf.sh/compile.sh machines.yaml web1.example.com</div>
 
   <h3>On your workstation</h3>
   <div class="table-wrap"><table>
@@ -449,7 +496,7 @@ cd honeyconf.sh</div>
 
   <h4>2. Compile and read the script</h4>
   <p>Compiling only reads the YAML. It never connects to the machine, so you can review the result first.</p>
-  <div class="code" data-lang="shell">./compile.sh machines.yaml web1.example.com</div>
+  <div class="code" data-lang="shell">.vendor/honeyconf.sh/compile.sh machines.yaml web1.example.com</div>
   <p>This machine sets no <code>options</code>, so the hostname, SSH hardening, fail2ban and updatedb emitters all run by default:</p>
   <div class="code" data-lang="bash" data-label="output (after the helper functions)"># BEGIN: hostname
 echo "web1.example.com" &gt; /etc/hostname
@@ -491,7 +538,7 @@ fi
 # END: updatedb</div>
 
   <h4>3. Deploy</h4>
-  <div class="code" data-lang="shell">./deploy.sh machines.yaml web1.example.com</div>
+  <div class="code" data-lang="shell">.vendor/honeyconf.sh/deploy.sh machines.yaml web1.example.com</div>
   <div class="code" data-lang="text" data-label="terminal">web1.example.com: #!/bin/bash
 web1.example.com: set -eu
 web1.example.com: + set -eu
@@ -506,19 +553,19 @@ web1.example.com: OK</div>
   <p>All commands can be run from any directory. Each one finds its helpers relative to its own location.</p>
 
   <h3 id="cli-compile">compile.sh</h3>
-  <div class="code" data-lang="shell">./compile.sh &lt;machines.yaml&gt; &lt;machine-name&gt;</div>
+  <div class="code" data-lang="shell">.vendor/honeyconf.sh/compile.sh &lt;machines.yaml&gt; &lt;machine-name&gt;</div>
   <p>Writes the full script for one machine to standard output. The machine name must match a key under <code>machines</code> exactly. Exits with code 1 if the machine is missing or the YAML is invalid. Compiling ignores <code>managed: false</code>.</p>
   <div class="code" data-lang="shell"># Save a script and review it
-./compile.sh machines.yaml web1.example.com &gt; web1.sh
+.vendor/honeyconf.sh/compile.sh machines.yaml web1.example.com &gt; web1.sh
 less web1.sh
 
 # See what a configuration change will do
-git stash &amp;&amp; ./compile.sh machines.yaml web1.example.com &gt; before.sh
-git stash pop &amp;&amp; ./compile.sh machines.yaml web1.example.com &gt; after.sh
+git stash &amp;&amp; .vendor/honeyconf.sh/compile.sh machines.yaml web1.example.com &gt; before.sh
+git stash pop &amp;&amp; .vendor/honeyconf.sh/compile.sh machines.yaml web1.example.com &gt; after.sh
 diff -u before.sh after.sh</div>
 
   <h3 id="cli-deploy">deploy.sh</h3>
-  <div class="code" data-lang="shell">./deploy.sh &lt;machines.yaml&gt; &lt;hostname-pattern&gt; [identity-file]</div>
+  <div class="code" data-lang="shell">.vendor/honeyconf.sh/deploy.sh &lt;machines.yaml&gt; &lt;hostname-pattern&gt; [identity-file]</div>
   <p>Compiles and runs the script on every managed machine whose name matches <code>&lt;hostname-pattern&gt;</code>, one machine at a time.</p>
   <ul>
     <li><strong>Pattern:</strong> a <code>grep</code> regular expression matched against machine names (see <a href="#cli-list"><code>list_machines.sh</code></a>).</li>
@@ -527,30 +574,30 @@ diff -u before.sh after.sh</div>
     <li><strong>Failure:</strong> the first machine that fails stops the run. Machines after it are not touched.</li>
   </ul>
   <div class="code" data-lang="shell"># One machine
-./deploy.sh machines.yaml '^web1\.example\.com$'
+.vendor/honeyconf.sh/deploy.sh machines.yaml '^web1\.example\.com$'
 
 # All web servers, with a specific key
-./deploy.sh machines.yaml '^web' ~/.ssh/ops_ed25519
+.vendor/honeyconf.sh/deploy.sh machines.yaml '^web' ~/.ssh/ops_ed25519
 
 # Everything that is managed
-./deploy.sh machines.yaml .</div>
+.vendor/honeyconf.sh/deploy.sh machines.yaml .</div>
   <div class="note warn"><strong>Patterns are substrings</strong><code>web1</code> also matches <code>web10.example.com</code>. Use <code>^</code> and <code>$</code> and escape the dots when you mean a single machine.</div>
 
   <h3 id="cli-execute">execute.sh</h3>
-  <div class="code" data-lang="shell">./execute.sh &lt;machines.yaml&gt; &lt;hostname-pattern&gt; &lt;commands-file&gt;</div>
+  <div class="code" data-lang="shell">.vendor/honeyconf.sh/execute.sh &lt;machines.yaml&gt; &lt;hostname-pattern&gt; &lt;commands-file&gt;</div>
   <p>Runs any shell file as root on the matching machines, using the same SSH login as <code>deploy.sh</code>. It prints <code>&lt;machine&gt;: DONE</code> after each one. This is useful for one-off maintenance that should not be part of the configuration.</p>
-  <div class="code" data-lang="shell">./execute.sh machines.yaml '^db' commands/apt_upgrade.sh</div>
+  <div class="code" data-lang="shell">.vendor/honeyconf.sh/execute.sh machines.yaml '^db' .vendor/honeyconf.sh/commands/apt_upgrade.sh</div>
 
   <h3 id="cli-list">list_machines.sh</h3>
-  <div class="code" data-lang="shell">./list_machines.sh &lt;machines.yaml&gt; &lt;hostname-pattern&gt;</div>
+  <div class="code" data-lang="shell">.vendor/honeyconf.sh/list_machines.sh &lt;machines.yaml&gt; &lt;hostname-pattern&gt;</div>
   <p>Prints the managed machines that match the pattern, in file order. Machines with <code>managed: false</code> are skipped. The other commands use this to pick their targets, so run it first to check what a pattern will hit.</p>
-  <div class="code" data-lang="shell">$ ./list_machines.sh machines.yaml example.com
+  <div class="code" data-lang="shell">$ .vendor/honeyconf.sh/list_machines.sh machines.yaml example.com
 web1.example.com
 app.example.com
 # legacy.example.com is not listed: it has managed: false</div>
 
   <h3 id="cli-profile">profile_all.sh</h3>
-  <div class="code" data-lang="shell">./profile_all.sh &lt;machines.yaml&gt; &lt;hostname-pattern&gt; &gt; inventory.tsv</div>
+  <div class="code" data-lang="shell">.vendor/honeyconf.sh/profile_all.sh &lt;machines.yaml&gt; &lt;hostname-pattern&gt; &gt; inventory.tsv</div>
   <p>Collects facts from each matching machine and prints a tab-separated table you can paste into a spreadsheet. Columns:</p>
   <div class="table-wrap"><table>
     <thead><tr><th>Column</th><th>Source on the machine</th></tr></thead>
@@ -580,9 +627,9 @@ app.example.com
     </tbody>
   </table></div>
   <div class="code" data-lang="shell"># Monthly patching across the fleet
-./execute.sh machines.yaml . commands/apt_upgrade.sh
-./execute.sh machines.yaml . commands/apt_autoremove.sh
-./profile_all.sh machines.yaml . | column -t -s $'\t'   # who needs a reboot?</div>
+.vendor/honeyconf.sh/execute.sh machines.yaml . .vendor/honeyconf.sh/commands/apt_upgrade.sh
+.vendor/honeyconf.sh/execute.sh machines.yaml . .vendor/honeyconf.sh/commands/apt_autoremove.sh
+.vendor/honeyconf.sh/profile_all.sh machines.yaml . | column -t -s $'\t'   # who needs a reboot?</div>
 </section>
 
 <!-- ================================================================ -->
@@ -1468,16 +1515,16 @@ PROCESS HALTED. Human intervention required</div>
   <p>The repository includes <a href="https://github.com/bee-software/honeyconf.sh/blob/master/schema.json"><code>schema.json</code></a> (JSON Schema 2020-12), which describes everything on this page. Use it for autocompletion and validation in your editor, or in CI.</p>
   <h4>VS Code / JetBrains (YAML language server)</h4>
   <p>Add a modeline at the top of <code>machines.yaml</code>:</p>
-  <div class="code" data-lang="yaml"># yaml-language-server: $schema=./honeyconf.sh/schema.json
+  <div class="code" data-lang="yaml"># yaml-language-server: $schema=./.vendor/honeyconf.sh/schema.json
 machines:
   web1.example.com: {}</div>
   <h4>Validate in CI</h4>
   <div class="code" data-lang="shell"># with check-jsonschema (pip install check-jsonschema)
-check-jsonschema --schemafile honeyconf.sh/schema.json machines.yaml
+check-jsonschema --schemafile .vendor/honeyconf.sh/schema.json machines.yaml
 
 # then make sure every machine actually compiles
-for m in $(./honeyconf.sh/list_machines.sh machines.yaml .); do
-  ./honeyconf.sh/compile.sh machines.yaml "$m" &gt; /dev/null || echo "FAILED: $m"
+for m in $(.vendor/honeyconf.sh/list_machines.sh machines.yaml .); do
+  .vendor/honeyconf.sh/compile.sh machines.yaml "$m" &gt; /dev/null || echo "FAILED: $m"
 done</div>
   <div class="note"><strong>The code is the reference</strong>If the schema and the emitters ever disagree, the emitters are right. Please report the difference as a bug in the schema.</div>
 </section>
