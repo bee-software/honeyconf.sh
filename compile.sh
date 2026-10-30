@@ -38,6 +38,7 @@ $(dirname $0)/emitters/updatedb.sh
 
 $(dirname $0)/emitters/monitoring.sh
 
-$(dirname $0)/emitters/service_accounts.sh
-
 $(dirname $0)/emitters/application_server_role.sh
+
+# After application_server_role so that groups such as docker exist
+$(dirname $0)/emitters/service_accounts.sh
